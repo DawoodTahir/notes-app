@@ -1,0 +1,24 @@
+# The image builds its own venv; shipping the host one breaks the build.
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Local database and any scratch data. The deployed app uses the mounted disk.
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Secrets never go in an image layer — Render injects them as env vars.
+.env
+.env.*
+!.env.example
+
+# Not part of the server.
+mobile/
+tests/
+.claude/
+.git/
+.DS_Store
+README.md

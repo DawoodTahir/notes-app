@@ -1,0 +1,8 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+youtube-transcript-api>=0.6.3
+yt-dlp>=2025.1.26        # keep current: YouTube extraction breaks with stale yt-dlp (run `yt-dlp -U`)
+anthropic==0.42.0
+openai==1.59.6
+python-dotenv==1.0.1
+pydantic==2.10.4

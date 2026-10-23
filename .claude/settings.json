@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; case \"$f\" in */youtube-notes/app/*.py|*/youtube-notes/app/static/*|*/youtube-notes/.env|*/youtube-notes/run.sh|*/youtube-notes/requirements.txt) exec \"$CLAUDE_PROJECT_DIR/.claude/verify.sh\" ;; esac; }",
+            "timeout": 240,
+            "statusMessage": "Re-running app verification\u2026"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; case \"$f\" in */youtube-notes/app/static/*.html) exec \"$CLAUDE_PROJECT_DIR/.claude/check-ui-contract.sh\" ;; esac; }",
+            "timeout": 30,
+            "statusMessage": "Checking UI DOM contract\u2026"
+          }
+        ]
+      }
+    ]
+  }
+}

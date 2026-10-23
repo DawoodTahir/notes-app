@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+<!-- Installable: Safari → Share → Add to Home Screen gives a real app icon,
+     a full-screen launch and no browser chrome. -->
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Gist" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<!-- The status bar takes this colour, so it has to follow the theme. -->
+<meta name="theme-color" content="#f3f2f9" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0b0b14" media="(prefers-color-scheme: dark)" />
+<!-- Rewritten by the theme toggle, which the media queries above cannot see. -->
+<meta name="theme-color" id="themeColor" content="#f3f2f9" />
+<title>Gist</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%234C3AE0'/%3E%3Crect x='4.5' y='6' width='12' height='2.8' rx='1.4' fill='white'/%3E%3Crect x='4.5' y='10.6' width='9' height='2.8' rx='1.4' fill='white'/%3E%3Crect x='4.5' y='15.2' width='5.5' height='2.8' rx='1.4' fill='white'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" crossorigin="anonymous"></script>
+<style>
+  /* ═══════════════════════════════════════════════════════════════
+     GIST — one stylesheet, one system.
+
+     Order: tokens → base → bar → panes (library, document,
+     conversation) → notes typography → overlays (gate, probe) →
+     responsive. Every selector is defined exactly once.
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* ── 1. Tokens ───────────────────────────────────────────────── */
+  :root{
+    /* brand */
+    --brand:#4c3ae0;
+    --brand-2:#e0567a;
+    --brand-soft:rgba(76,58,224,.10);
+    --brand-line:rgba(76,58,224,.28);
+    --mark-a:#4c3ae0;
+    --mark-b:#7b5cf0;
+    --highlight:#e5b93c;
+    --highlight-wash:rgba(229,185,60,.28);
+
+    /* ink */
+    --ink:#16162a;
+    --ink-2:#55527a;
+    --ink-3:#8b88a6;
+
+    /* grounds, ordered by depth: page < nav < chat < doc < surface */
+    --page:#f3f2f9;
+    --bg-nav:#eae8f5;
+    --bg-chat:#f0eef9;
+    --bg-doc:#fbfbfe;
+    --surface:#ffffff;
+    --surface-2:#f6f5fb;
+    --field:#ffffff;
+    --seam:#d9d7e8;
+    --line:#e6e4f0;
+
+    --glow-a:rgba(108,86,240,.14);
+    --glow-b:rgba(224,86,122,.11);
+
+    /* semantic (distinct from brand on purpose) */
+    --ok:#23875e;
+    --warn:#b4562b;
+    --err:#c93a32;
+    --err-wash:rgba(201,58,50,.09);
+
+    /* platform hues: colour that carries information */
+    --p-youtube:#e0413a;
+    --p-instagram:#c93aa0;
+    --p-facebook:#1877f2;
+    --p-tiktok:#00b5ad;
+    --p-x:#4a4a57;
+    --p-vimeo:#17b3e8;
+    --p-other:#6d6a86;
+
+    /* scales */
+    --r-sm:6px;
+    --r-md:10px;
+    --r-lg:14px;
+    --e1:0 1px 2px rgba(22,22,42,.05), 0 6px 18px -12px rgba(22,22,42,.28);
+    --e2:0 10px 24px -14px rgba(22,22,42,.55);
+    --e3:0 20px 48px -20px rgba(22,22,42,.6);
+
+    --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --display:"Fraunces",Georgia,"Times New Roman",serif;
+
+    --bar-h:56px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --brand:#8f7cff; --brand-soft:rgba(143,124,255,.16); --brand-line:rgba(143,124,255,.36);
+      --brand-2:#f07a98; --mark-a:#6b52f0; --mark-b:#9b7dff;
+      --highlight-wash:rgba(229,185,60,.18);
+      --ink:#ecebf6; --ink-2:#aaa7c4; --ink-3:#7c799a;
+      --page:#0b0b14; --bg-nav:#0e0e18; --bg-chat:#11111d; --bg-doc:#171726;
+      --surface:#1c1c2c; --surface-2:#212132; --field:#13131f;
+      --seam:#2d2c42; --line:#28273a;
+      --glow-a:rgba(123,92,240,.22); --glow-b:rgba(224,86,122,.13);
+      --ok:#5cc394; --warn:#dd8b57; --err:#ef7b71; --err-wash:rgba(239,123,113,.12);
+      --p-x:#b9b6c9;
+      --e1:0 1px 2px rgba(0,0,0,.35), 0 8px 22px -14px rgba(0,0,0,.7);
+      --e2:0 12px 28px -14px rgba(0,0,0,.75);
+      --e3:0 24px 56px -20px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --brand:#8f7cff; --brand-soft:rgba(143,124,255,.16); --brand-line:rgba(143,124,255,.36);
+    --brand-2:#f07a98; --mark-a:#6b52f0; --mark-b:#9b7dff;
+    --highlight-wash:rgba(229,185,60,.18);
+    --ink:#ecebf6; --ink-2:#aaa7c4; --ink-3:#7c799a;
+    --page:#0b0b14; --bg-nav:#0e0e18; --bg-chat:#11111d; --bg-doc:#171726;
+    --surface:#1c1c2c; --surface-2:#212132; --field:#13131f;
+    --seam:#2d2c42; --line:#28273a;
+    --glow-a:rgba(123,92,240,.22); --glow-b:rgba(224,86,122,.13);
+    --ok:#5cc394; --warn:#dd8b57; --err:#ef7b71; --err-wash:rgba(239,123,113,.12);
+    --p-x:#b9b6c9;
+    --e1:0 1px 2px rgba(0,0,0,.35), 0 8px 22px -14px rgba(0,0,0,.7);
+    --e2:0 12px 28px -14px rgba(0,0,0,.75);
+    --e3:0 24px 56px -20px rgba(0,0,0,.8);
+  }
+  [data-p="YouTube"]{--pc:var(--p-youtube)}
+  [data-p="Instagram"]{--pc:var(--p-instagram)}
+  [data-p="Facebook"]{--pc:var(--p-facebook)}
+  [data-p="TikTok"]{--pc:var(--p-tiktok)}
+  [data-p="X"]{--pc:var(--p-x)}
+  [data-p="Vimeo"]{--pc:var(--p-vimeo)}
+
+  /* ── 2. Base ─────────────────────────────────────────────────── */
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html{-webkit-text-size-adjust:100%}
+  html,body{height:100%}
+  body{
+    margin:0;overflow:hidden;
+    color:var(--ink);
+    font:400 14.5px/1.6 var(--sans);
+    font-feature-settings:"kern" 1;
+    background:
+      radial-gradient(1100px 620px at 10% -6%, var(--glow-a), transparent 62%),
+      radial-gradient(900px 560px at 96% 104%, var(--glow-b), transparent 60%),
+      var(--page);
+    background-attachment:fixed;
+  }
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+  a{color:var(--brand)}
+
+  /* form controls */
+  input,textarea,select{
+    width:100%;background:var(--field);color:var(--ink);
+    border:1px solid var(--line);border-radius:var(--r-sm);
+    padding:9px 11px;font:inherit;font-size:14px;outline:none;
+    transition:border-color .12s ease,box-shadow .12s ease;
+  }
+  input::placeholder,textarea::placeholder{color:var(--ink-3)}
+  input:focus,textarea:focus,select:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+  textarea{resize:vertical;min-height:62px;line-height:1.5}
+  select{
+    appearance:none;cursor:pointer;padding-right:32px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);
+    background-position:calc(100% - 16px) 52%,calc(100% - 11px) 52%;
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+  }
+  button{
+    font:inherit;font-size:13.5px;font-weight:500;
+    border-radius:var(--r-sm);padding:9px 14px;cursor:pointer;
+    border:1px solid var(--line);background:var(--surface);color:var(--ink);
+    transition:background .12s ease,border-color .12s ease,opacity .12s ease,filter .12s ease;
+  }
+  button:hover:not(:disabled){border-color:var(--seam);background:var(--surface-2)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{
+    background:linear-gradient(140deg,var(--mark-b),var(--mark-a));
+    border-color:transparent;color:#fff;
+  }
+  button.primary:hover:not(:disabled){filter:brightness(1.08);border-color:transparent;background:linear-gradient(140deg,var(--mark-b),var(--mark-a))}
+
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+  .field > label{font-weight:600;font-size:13px;color:var(--ink)}
+  .hint{color:var(--ink-3);font-weight:400;font-size:12px;display:block;line-height:1.45}
+
+  /* status + spinner, shared */
+  .status{
+    margin-top:10px;font-size:12.5px;color:var(--ink-2);
+    min-height:18px;display:flex;align-items:flex-start;gap:7px;line-height:1.5;
+  }
+  .status:empty{margin-top:0;min-height:0}
+  .status.err{
+    color:var(--err);background:var(--err-wash);
+    border-left:2px solid var(--err);padding:8px 10px;border-radius:0 var(--r-sm) var(--r-sm) 0;
+  }
+  .spinner{
+    width:11px;height:11px;flex:none;margin-top:3px;
+    border:2px solid var(--brand-soft);border-top-color:var(--brand);
+    border-radius:50%;animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* small labels, shared */
+  .badge{
+    font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;
+    padding:3px 7px;border-radius:4px;vertical-align:3px;margin-left:8px;
+    background:var(--ok);color:#fff;
+  }
+  .badge.example{background:var(--highlight-wash);color:var(--ink-2);border:1px solid var(--highlight)}
+
+  .tag{
+    display:inline-block;font-family:var(--mono);font-size:10px;font-weight:500;
+    letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;
+    background:color-mix(in srgb,var(--pc,var(--p-other)) 14%,transparent);
+    color:var(--pc,var(--p-other));
+    border:1px solid color-mix(in srgb,var(--pc,var(--p-other)) 30%,transparent);
+  }
+
+  /* scrollbars, quiet */
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{
+    background:var(--seam);border-radius:100px;border:2px solid transparent;background-clip:content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover{background-color:var(--ink-3);background-clip:content-box}
+
+  /* ── 3. Bar ──────────────────────────────────────────────────── */
+  .bar{
+    display:flex;align-items:center;gap:12px;
+    height:var(--bar-h);padding:0 20px;
+    background:color-mix(in srgb,var(--surface) 84%,transparent);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--seam);
+    position:relative;z-index:10;
+  }
+  .mark{
+    width:28px;height:28px;border-radius:8px;flex:none;
+    display:grid;place-items:center;color:#fff;
+    background:linear-gradient(140deg,var(--mark-b),var(--mark-a));
+    box-shadow:0 2px 8px -2px rgba(76,58,224,.55);
+  }
+  .mark svg{width:16px;height:16px;fill:currentColor;display:block}
+  .wordmark{
+    margin:0;line-height:1;font-family:var(--display);font-weight:600;font-size:19px;
+    letter-spacing:-.02em;white-space:nowrap;
+    background:linear-gradient(100deg,var(--mark-a),var(--brand-2));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .bar .spacer{flex:1}
+  .icon-btn{
+    display:none;font:inherit;font-size:15px;line-height:1;padding:5px 9px;
+    background:transparent;border:1px solid var(--line);border-radius:var(--r-sm);
+    color:var(--ink-2);cursor:pointer;
+  }
+  .theme-btn{font-size:12.5px;color:var(--ink-2);background:transparent;padding:5px 10px}
+  .theme-btn:hover{color:var(--ink)}
+  .who-chip{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+  .who-chip .em{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .plan-tag{
+    font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;
+    background:var(--surface-2);border:1px solid var(--line);color:var(--ink-3);
+  }
+
+  /* ── 4. Shell + panes ────────────────────────────────────────── */
+  .shell{
+    display:grid;grid-template-columns:240px minmax(0,1fr) 350px;
+    height:calc(100vh - var(--bar-h));overflow:hidden;
+  }
+  .pane{min-width:0;min-height:0;display:flex;flex-direction:column;padding:16px}
+  /* translucent, so the fixed wash tints each pane differently */
+  .pane-nav{background:color-mix(in srgb,var(--bg-nav) 82%,transparent);border-right:1px solid var(--seam);gap:10px;padding:14px 12px}
+  .pane-main{background:color-mix(in srgb,var(--bg-doc) 80%,transparent);padding:16px 22px 14px}
+  .pane-chat{background:color-mix(in srgb,var(--bg-chat) 78%,transparent);border-left:1px solid var(--seam);padding:14px 16px}
+
+  /* section labels, one style everywhere */
+  .nav-head,.tally,.fcount,.opt,.mode-hint,.rel,.idx,.rm,.cm{
+    font-family:var(--mono);font-variant-numeric:tabular-nums;
+  }
+  .nav-head{
+    flex:none;display:flex;align-items:baseline;justify-content:space-between;
+    font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);padding:4px 2px 0;
+  }
+
+  /* ── 4a. Library ─────────────────────────────────────────────── */
+  .new-btn{
+    width:100%;flex:none;text-align:left;font-weight:500;font-size:13.5px;padding:9px 12px;
+    background:linear-gradient(140deg,var(--mark-b),var(--mark-a));border-color:transparent;color:#fff;
+  }
+  .new-btn:hover{filter:brightness(1.08);background:linear-gradient(140deg,var(--mark-b),var(--mark-a));border-color:transparent}
+  .bucket-list{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:6px 4px 40px;display:flex;flex-direction:column}
+  .bucket-empty{
+    font-size:12px;color:var(--ink-3);line-height:1.5;text-align:center;padding:12px;
+    border:1px dashed var(--seam);border-radius:var(--r-md);
+  }
+  .folder{
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+    margin:16px 2px 9px;padding-bottom:5px;border-bottom:1px solid var(--seam);
+  }
+  .folder:first-child{margin-top:2px}
+  .fname{font-family:var(--display);font-weight:600;font-size:13px;color:var(--ink)}
+  .nav-right{display:flex;align-items:center;gap:7px}
+  .refile{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+    padding:3px 7px;border-radius:100px;line-height:1.5;
+    color:var(--brand);background:var(--surface);border:1px solid var(--brand-line);
+  }
+  .refile:hover:not(:disabled){background:var(--brand-soft);border-color:var(--brand)}
+  .fcount{font-size:10px;color:var(--ink-3);background:var(--surface-2);border:1px solid var(--line);border-radius:100px;padding:1px 6px}
+  .deck{display:flex;flex-direction:column}
+
+  /* the stack */
+  .card{
+    position:relative;display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;
+    margin-top:-30px;padding:11px 12px 13px;border-radius:9px;
+    background:var(--surface);border:1px solid var(--line);box-shadow:var(--e1);
+    transition:transform .24s cubic-bezier(.2,.8,.3,1),box-shadow .24s ease,border-color .16s ease;
+    will-change:transform;
+  }
+  .deck .card:first-child{margin-top:0}
+  .card::before{
+    content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;
+    background:var(--pc,var(--p-other));opacity:.85;
+  }
+  .bucket-list:hover .card{transform:translateY(-3px)}
+  .card:hover{transform:translateY(-10px) scale(1.012);box-shadow:var(--e2);z-index:3;
+    border-color:color-mix(in srgb,var(--pc,var(--brand)) 45%,transparent)}
+  .card:hover ~ .card{transform:translateY(22px)}
+  .card.active{transform:translateY(-6px);border-color:var(--pc,var(--brand));box-shadow:var(--e2);z-index:2}
+  .card.active::after{
+    content:"";position:absolute;inset:-1px;border-radius:9px;pointer-events:none;
+    border:1px solid color-mix(in srgb,var(--pc,var(--brand)) 55%,transparent);
+  }
+  @keyframes pop{0%{transform:translateY(-6px)}45%{transform:translateY(-12px) scale(1.045)}100%{transform:translateY(-6px)}}
+  .card.pop{animation:pop .34s cubic-bezier(.2,.9,.3,1)}
+  .ct{font-size:12.5px;font-weight:600;line-height:1.35;margin:0 22px 5px 4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .cp{display:none}
+  .cs{
+    margin:0 0 6px 4px;font-size:10.5px;line-height:1.4;color:var(--ink-3);
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+    max-height:0;opacity:0;transition:max-height .24s ease,opacity .18s ease;
+  }
+  .card:hover .cs,.card.active .cs{max-height:20px;opacity:1}
+  .cw{
+    margin:0 0 6px 4px;padding-left:7px;border-left:2px solid var(--brand-line);
+    font-size:11px;line-height:1.45;color:var(--ink-2);
+    max-height:0;overflow:hidden;opacity:0;transition:max-height .24s ease,opacity .18s ease;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;  /* cut on a line, not mid-word */
+  }
+  .card:hover .cw,.card.active .cw{max-height:52px;opacity:1}
+  .cm{margin-left:4px;font-size:9.5px;color:var(--ink-3);letter-spacing:.02em;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .del{
+    position:absolute;top:7px;right:7px;width:22px;height:22px;padding:0;line-height:1;
+    border-radius:4px;border:1px solid transparent;background:transparent;color:var(--ink-3);
+    font-size:15px;display:grid;place-items:center;opacity:0;transition:opacity .12s ease;
+  }
+  .card:hover .del,.del:focus-visible{opacity:1}
+  .del:hover{background:var(--err-wash);color:var(--err);border-color:transparent}
+
+  /* ── 4b. Document ────────────────────────────────────────────── */
+  .compose{flex:none;margin-bottom:12px}
+  .compose-row{display:flex;gap:8px}
+  .compose-row input{flex:1;font-family:var(--mono);font-size:13px}
+  .compose-row button{flex:0 0 auto;padding:0 14px;height:38px;white-space:nowrap}
+  .mode-hint{display:block;font-size:10.5px;letter-spacing:.04em;color:var(--ink-3);min-height:14px;margin-top:6px}
+  .mode-hint b{color:var(--brand);font-weight:500}
+
+
+  /* Style: presets first, free text on request */
+  .style{margin:12px 0 0}
+  .style-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .style-label{font-size:12px;font-weight:600;color:var(--ink-2);letter-spacing:.02em}
+  .style-more{
+    font:inherit;font-size:12px;color:var(--brand);background:none;border:0;padding:0;
+    cursor:pointer;border-bottom:1px solid var(--brand-line);border-radius:0;
+  }
+  .style-more:hover{border-bottom-color:var(--brand);background:none}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chips button{
+    font-size:12.5px;padding:6px 12px;border-radius:100px;color:var(--ink-2);
+    background:var(--surface);border:1px solid var(--line);
+    transition:background .12s ease,border-color .12s ease,color .12s ease,transform .12s ease;
+  }
+  .chips button:hover{border-color:var(--brand-line);color:var(--ink);transform:translateY(-1px)}
+  .chips button[aria-checked="true"]{
+    color:#fff;border-color:transparent;
+    background:linear-gradient(140deg,var(--mark-b),var(--mark-a));
+    box-shadow:0 4px 12px -6px rgba(76,58,224,.6);
+  }
+  .style-desc{margin:8px 2px 0;font-size:12px;color:var(--ink-3);line-height:1.45;min-height:17px}
+  .style textarea{margin-top:8px;min-height:58px;font-size:13px}
+
+  .results{margin-top:10px;display:flex;flex-direction:column;gap:2px;max-height:266px;overflow-y:auto}
+  .results:empty{display:none}
+  .result{
+    display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;
+    padding:9px 10px;border-radius:var(--r-sm);cursor:pointer;
+    background:transparent;border:1px solid transparent;font:inherit;color:inherit;
+  }
+  .result:hover{background:var(--surface);border-color:var(--line)}
+  .result > span:last-child{min-width:0;flex:1}
+  .idx{font-size:10.5px;color:var(--ink-3);flex:none;width:16px;padding-top:2px}
+  .rt{display:block;font-size:13px;font-weight:500;line-height:1.4;margin-bottom:3px}
+  .rm{display:block;font-size:10.5px;color:var(--ink-3)}
+
+  .doc-head{
+    flex:none;display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    padding-top:12px;border-top:1px solid var(--seam);margin-bottom:12px;
+  }
+  .doc-title h2{font-family:var(--display);font-weight:500;font-size:19px;margin:0;letter-spacing:-.01em;line-height:1.25}
+  .doc-actions{display:flex;gap:7px}
+  .doc-actions button{font-size:12.5px;padding:7px 11px}
+
+  .result-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:4px}
+  .paper{
+    background:var(--surface);border:1px solid color-mix(in srgb,var(--brand) 8%,transparent);
+    border-radius:var(--r-lg);box-shadow:var(--e1);padding:24px 28px;min-height:220px;
+  }
+  /* Idle: a flashcard that keeps moving until something is started */
+  .idle{
+    min-height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:26px;padding:28px 16px;
+  }
+  .fc-stack{position:relative;width:min(420px,100%);height:180px;perspective:1100px}
+  .fc{
+    position:absolute;inset:0;border-radius:var(--r-lg);
+    background:var(--surface);border:1px solid color-mix(in srgb,var(--brand) 10%,transparent);
+    box-shadow:var(--e2);
+  }
+  .fc-ghost{pointer-events:none}
+  .fc-g1{transform:translateY(10px) scale(.965);opacity:.6}
+  .fc-g2{transform:translateY(20px) scale(.93);opacity:.3}
+  .fc-front{
+    transform-style:preserve-3d;
+    transition:transform .7s cubic-bezier(.2,.8,.25,1),opacity .35s ease;
+    border:0;background:none;box-shadow:none;
+  }
+  .fc-front.flipped{transform:rotateY(180deg)}
+  .fc-front.leaving{opacity:0;transform:translateX(34px) rotateY(180deg)}
+  .fc-front.entering{opacity:0;transform:translateX(-34px)}
+  .fc-face{
+    position:absolute;inset:0;border-radius:var(--r-lg);padding:24px 26px;
+    display:flex;flex-direction:column;gap:10px;justify-content:center;
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    background:var(--surface);border:1px solid color-mix(in srgb,var(--brand) 10%,transparent);
+    box-shadow:var(--e2);
+  }
+  .fc-a{transform:rotateY(180deg);background:linear-gradient(140deg,color-mix(in srgb,var(--brand) 10%,var(--surface)),var(--surface))}
+  .fc-k{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;font-weight:500;
+    width:24px;height:24px;border-radius:6px;display:grid;place-items:center;
+    background:linear-gradient(140deg,var(--mark-b),var(--mark-a));color:#fff;
+  }
+  .fc-face p{margin:0;font-family:var(--display);font-weight:500;font-size:20px;line-height:1.3;letter-spacing:-.01em;text-wrap:balance}
+  .fc-a p{font-family:var(--sans);font-weight:400;font-size:15.5px;color:var(--ink-2)}
+  .idle-hint{margin:0;font-size:12.5px;color:var(--ink-3)}
+  @media (prefers-reduced-motion:reduce){
+    .fc-front{transition:none}
+    .fc-front.leaving,.fc-front.entering{opacity:1;transform:none}
+    .fc-front.flipped{transform:rotateY(180deg)}
+  }
+
+  .stream{margin-top:20px}
+  .stream summary{
+    cursor:pointer;list-style:none;font-family:var(--mono);font-size:11.5px;font-weight:500;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);
+    display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--seam);
+  }
+  .stream summary::-webkit-details-marker{display:none}
+  .stream summary::before{
+    content:"";width:0;height:0;flex:none;border-left:4px solid currentColor;
+    border-top:3.5px solid transparent;border-bottom:3.5px solid transparent;transition:transform .15s ease;
+  }
+  .stream[open] summary::before{transform:rotate(90deg)}
+  .transcript{
+    font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--ink-2);
+    background:var(--surface-2);border:1px solid var(--line);border-left:2px solid var(--seam);
+    padding:14px 16px;margin:0 0 4px;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word;
+  }
+
+  /* ── 5. Notes typography ─────────────────────────────────────── */
+  .notes{font-size:14.5px;line-height:1.68;color:var(--ink)}
+  .notes.empty{color:var(--ink-3)}
+  .notes > :first-child{margin-top:0}
+  .notes > :last-child{margin-bottom:0}
+  .notes h1,.notes h2{font-family:var(--display);font-weight:600;letter-spacing:-.012em;line-height:1.25;text-wrap:balance;margin:1.5em 0 .45em}
+  .notes h1{font-size:22px}
+  .notes h2{font-size:18.5px}
+  .notes h3{font-size:15.5px;font-weight:600;margin:1.4em 0 .4em}
+  .notes strong{font-weight:600;background:var(--highlight-wash);padding:0 2px;border-radius:2px;box-decoration-break:clone}
+  .notes code{font-family:var(--mono);font-size:.87em;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;padding:1px 4px;white-space:nowrap}
+  .notes pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:13px 15px;overflow-x:auto}
+  .notes pre code{background:none;border:0;padding:0;font-size:13px;white-space:pre}
+  .notes table{border-collapse:collapse;width:100%;font-size:13.5px}
+  .notes th,.notes td{border:1px solid var(--line);padding:7px 10px;text-align:left}
+  .notes th{background:var(--surface-2);font-weight:600}
+
+  /* every line is its own small surface, and a research target */
+  .notes ul,.notes ol{list-style:none;padding-left:2px;margin:0 0 .7em}
+  .notes li,.notes > p,.notes blockquote{
+    position:relative;border-radius:9px;border:1px solid transparent;
+    transition:transform .17s cubic-bezier(.2,.8,.3,1),background .17s ease,box-shadow .17s ease,border-color .17s ease;
+  }
+  .notes li{margin:2px 0;padding:7px 12px 7px 28px}
+  .notes > p{margin:0 0 .6em -12px;padding:6px 12px;max-width:72ch}
+  .notes blockquote{margin:0 0 .9em -12px;padding:6px 12px 6px 14px;color:var(--ink-2);border-left:2px solid var(--brand);border-radius:0 9px 9px 0}
+  .notes li::before{
+    content:"";position:absolute;left:11px;top:15px;width:6px;height:6px;border-radius:50%;
+    background:var(--brand);opacity:.5;transition:transform .17s cubic-bezier(.2,.8,.3,1),opacity .17s ease;
+  }
+  .notes ol{counter-reset:n}
+  .notes ol > li{counter-increment:n}
+  .notes ol > li::before{
+    content:counter(n);width:auto;height:auto;border-radius:0;background:none;top:7px;left:8px;
+    font-family:var(--mono);font-size:11px;font-weight:500;color:var(--brand);opacity:.75;
+  }
+  .notes li:hover,.notes > p:hover,.notes blockquote:hover{
+    transform:translateY(-2px);background:var(--surface);
+    border-color:color-mix(in srgb,var(--brand) 8%,transparent);box-shadow:var(--e2);
+  }
+  .notes li:hover::before{transform:scale(1.55);opacity:1}
+  .notes ol > li:hover::before{transform:none}
+  .notes li li{margin-left:2px}
+  .notes li.researching,.notes p.researching{background:var(--brand-soft);box-shadow:0 0 0 4px var(--brand-soft)}
+
+  .find{
+    position:absolute;top:-2px;right:-6px;opacity:0;pointer-events:none;transform:translateX(4px);
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:500;
+    padding:3px 8px;border-radius:100px;line-height:1.5;white-space:nowrap;
+    color:var(--brand);background:var(--surface);border:1px solid var(--brand-line);cursor:pointer;
+    transition:opacity .14s ease,transform .14s ease;
+  }
+  .notes li:hover > .find,.notes p:hover > .find,.notes blockquote:hover > .find,.find:focus-visible{
+    opacity:1;pointer-events:auto;transform:none;
+  }
+  .find:hover{background:var(--brand-soft)}
+
+  /* ── 4c. Conversation ────────────────────────────────────────── */
+  .chat-head{flex:none;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 10px}
+  .chat-head h3{font-family:var(--display);font-weight:500;font-size:16px;margin:0;letter-spacing:-.01em}
+  .chat-head .note{font-size:12px;color:var(--ink-3)}
+  .chat-empty{flex:1 1 auto;display:grid;place-items:center;text-align:center;color:var(--ink-3);font-size:12.5px;line-height:1.6;padding:0 14px}
+  .chat.on .chat-empty{display:none}
+  .chat:not(.on) .chat-log,.chat:not(.on) .suggest,.chat:not(.on) .chat-form{display:none}
+  .pane-chat .status{display:none}
+
+  .suggest{flex:none;display:flex;flex-wrap:wrap;gap:7px;margin:0 0 10px}
+  .suggest:empty{display:none}
+  .suggest button{font-size:11.5px;padding:5px 9px;border-radius:100px;color:var(--ink-2)}
+  .suggest button:hover{color:var(--ink);border-color:var(--brand);background:var(--brand-soft)}
+
+  .chat-log{
+    flex:1 1 auto;min-height:0;overflow-y:auto;scroll-behavior:smooth;
+    display:flex;flex-direction:column;justify-content:flex-end;gap:12px;padding:2px 2px 6px;
+  }
+  .msg{display:flex;gap:10px;max-width:100%}
+  .msg .who{
+    flex:none;width:24px;height:24px;border-radius:5px;margin-top:1px;
+    font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.02em;display:grid;place-items:center;
+  }
+  .msg.user{align-self:flex-end;flex-direction:row-reverse}
+  .msg.user .who{background:var(--ink);color:var(--page)}
+  .msg.bot .who{background:var(--brand-soft);color:var(--brand)}
+  .bubble{border-radius:var(--r-md);padding:10px 13px;font-size:14px;line-height:1.62;border:1px solid var(--line);background:var(--surface);min-width:0}
+  .msg.user .bubble{background:color-mix(in srgb,var(--brand) 9%,var(--surface));border-color:var(--brand-line)}
+  .msg.err .bubble{background:var(--err-wash);border-color:transparent;border-left:2px solid var(--err);color:var(--err)}
+  .bubble > :first-child{margin-top:0}
+  .bubble > :last-child{margin-bottom:0}
+  .bubble p{margin:0 0 .6em}
+  .bubble ul,.bubble ol{margin:0 0 .6em;padding-left:1.1em}
+  .bubble li{margin:.2em 0}
+  .bubble code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;padding:1px 4px;white-space:nowrap}
+  .bubble strong{font-weight:600;background:var(--highlight-wash);padding:0 2px;border-radius:2px;box-decoration-break:clone}
+  .bubble pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;overflow-x:auto}
+  .bubble pre code{background:none;border:0;padding:0;white-space:pre}
+  .dots{display:inline-flex;gap:4px;align-items:center;height:20px}
+  .dots i{width:5px;height:5px;border-radius:50%;background:var(--ink-3);animation:blink 1.3s ease-in-out infinite}
+  .dots i:nth-child(2){animation-delay:.18s}
+  .dots i:nth-child(3){animation-delay:.36s}
+  @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+  .chat-form{flex:none;display:flex;gap:8px;align-items:flex-end;margin-top:10px}
+  .chat-form textarea{flex:1;min-height:42px;max-height:150px;resize:none;padding:11px 12px;font-size:14px;line-height:1.45}
+  .chat-form button{flex:0 0 auto;height:42px;white-space:nowrap;padding:0 16px}
+
+  /* research findings inside a bubble */
+  .finds{display:flex;flex-direction:column;gap:9px;margin:4px 0 2px}
+  .find-card{border:1px solid var(--line);border-left:3px solid var(--rc,var(--ink-3));border-radius:7px;padding:9px 11px;background:var(--surface-2)}
+  .find-card[data-r="supports"]{--rc:var(--ok)}
+  .find-card[data-r="disputes"]{--rc:var(--err)}
+  .find-card[data-r="context"]{--rc:var(--brand)}
+  .rel{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--rc,var(--ink-3));font-weight:500}
+  .ft{font-size:12.5px;font-weight:600;margin:3px 0 5px;line-height:1.35}
+  .fq{font-size:12.5px;line-height:1.55;color:var(--ink);margin:0 0 5px;font-style:italic}
+  .fn{font-size:11.5px;color:var(--ink-2);line-height:1.45;margin:0}
+  .find-card a{font-family:var(--mono);font-size:10.5px;color:var(--brand);text-decoration:none;border-bottom:1px solid var(--brand-line)}
+  .find-none{font-size:12.5px;color:var(--ink-2);line-height:1.5}
+
+  /* ── 6. Overlays ─────────────────────────────────────────────── */
+  .gate{position:fixed;inset:0;z-index:100;background:var(--page);display:grid;place-items:center;padding:24px;overflow-y:auto}
+  .gate-card{width:100%;max-width:392px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--e3);padding:28px 28px 24px}
+  .gate-mark{display:flex;align-items:center;gap:11px;margin-bottom:20px}
+  .gate-card h2{font-family:var(--display);font-weight:500;font-size:21px;margin:0 0 5px;letter-spacing:-.01em}
+  .gate-card .sub{color:var(--ink-2);font-size:13px;margin:0 0 20px;line-height:1.5}
+  .gate-card button[type=submit]{width:100%;margin-top:6px;height:40px}
+  .gate-switch{margin-top:16px;padding-top:15px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-2);text-align:center}
+  .gate-switch button{background:none;border:0;padding:0;font:inherit;font-size:12.5px;color:var(--brand);cursor:pointer;text-decoration:underline}
+  .gate .status{justify-content:flex-start}
+
+  .probe{
+    position:absolute;z-index:40;width:326px;max-width:calc(100vw - 32px);
+    background:var(--surface);border:1px solid var(--seam);border-radius:var(--r-md);box-shadow:var(--e3);padding:13px;
+  }
+  .claim{font-size:12px;color:var(--ink-2);line-height:1.5;margin:0 0 9px;max-height:56px;overflow:hidden;border-left:2px solid var(--brand);padding-left:9px}
+  .probe textarea{min-height:56px;font-size:13px}
+  .probe .row{display:flex;gap:7px;margin-top:9px}
+  .probe .row button{flex:1;font-size:12.5px;padding:7px 10px}
+
+  /* ── 7. Motion + responsive ──────────────────────────────────── */
+  @media (prefers-reduced-motion:reduce){
+    *{transition-duration:.01ms !important;animation-duration:.01ms !important}
+    .card,.bucket-list:hover .card,.card:hover,.card:hover ~ .card,
+    .notes li:hover,.notes > p:hover,.notes blockquote:hover,.notes li:hover::before{transform:none}
+  }
+
+  /* narrower desktop: fold the conversation under the document */
+  @media (max-width:1179px){
+    .shell{grid-template-columns:216px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+    .pane-nav{grid-row:1 / span 2}
+    .pane-main{padding-bottom:0}
+    .pane-chat{grid-column:2;border-left:0;border-top:1px solid var(--seam);padding:12px 22px 14px;max-height:46%}
+  }
+
+  /* phone: one column, ordinary page scrolling, library as a drawer */
+  @media (max-width:900px){
+    html,body{height:auto}
+    body{overflow:auto}
+    .icon-btn{display:inline-block}
+    .shell{display:flex;flex-direction:column;height:auto;overflow:visible}
+    .pane{height:auto}
+    .pane-main{order:1;padding:16px}
+    .pane-chat{order:2;max-height:none;border-top:1px solid var(--seam);border-left:0;padding:14px 16px}
+    .pane-nav{order:3;display:none;border-right:0;border-top:1px solid var(--seam)}
+    .pane-nav.open{display:flex}
+    .result-scroll,.chat-log,.bucket-list{overflow:visible;max-height:none}
+    .doc-actions{width:100%}
+    .card{margin-top:8px;transform:none !important}
+    .deck .card:first-child{margin-top:0}
+    .cs{
+    margin:0 0 6px 4px;font-size:10.5px;line-height:1.4;color:var(--ink-3);
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+    max-height:0;opacity:0;transition:max-height .24s ease,opacity .18s ease;
+  }
+  .card:hover .cs,.card.active .cs{max-height:20px;opacity:1}
+  .cw{max-height:none;opacity:1}
+    .bar{gap:10px;padding:0 14px}
+  }
+
+  /* ── Installed as an app ─────────────────────────────────────
+     Standalone has no browser chrome, so the page owns the notch and the
+     home indicator. In landscape the insets are on the sides. */
+  @media (display-mode: standalone){
+    .bar{
+      height:calc(var(--bar-h) + env(safe-area-inset-top,0px));
+      padding-top:env(safe-area-inset-top,0px);
+      padding-left:calc(20px + env(safe-area-inset-left,0px));
+      padding-right:calc(20px + env(safe-area-inset-right,0px));
+    }
+    .shell{
+      padding-left:env(safe-area-inset-left,0px);
+      padding-right:env(safe-area-inset-right,0px);
+      padding-bottom:env(safe-area-inset-bottom,0px);
+    }
+  }
+
+  /* Add-to-Home-Screen prompt. Shown once, dismissible for good. */
+  .install{
+    position:fixed;left:12px;right:12px;z-index:60;
+    bottom:calc(12px + env(safe-area-inset-bottom,0px));
+    display:flex;align-items:center;gap:12px;
+    padding:12px 12px 12px 14px;border-radius:14px;
+    background:color-mix(in srgb,var(--surface) 94%,transparent);
+    backdrop-filter:blur(14px);
+    border:1px solid var(--brand-line);
+    box-shadow:0 14px 40px -12px rgba(23,20,60,.38);
+    animation:install-in .34s cubic-bezier(.2,.9,.3,1) both;
+  }
+  @keyframes install-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.install{animation:none}}
+  .install .mark{width:34px;height:34px;border-radius:9px}
+  .install .mark svg{width:19px;height:19px}
+  .install-copy{flex:1;min-width:0}
+  .install-copy b{display:block;font-size:13.5px;font-weight:600;color:var(--ink)}
+  .install-copy span{display:block;font-size:12px;line-height:1.45;color:var(--ink-2)}
+  .install-copy kbd{
+    font:inherit;font-size:12px;padding:0 3px;border-radius:4px;
+    background:var(--brand-soft);color:var(--brand);
+  }
+  .install-go{
+    flex:none;font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+    padding:8px 15px;border-radius:9px;border:0;color:#fff;
+    background:linear-gradient(140deg,var(--mark-b),var(--mark-a));
+  }
+  .install-x{
+    flex:none;width:28px;height:28px;border-radius:8px;cursor:pointer;
+    font:inherit;font-size:14px;line-height:1;color:var(--ink-3);
+    background:none;border:1px solid transparent;
+  }
+  .install-x:hover{background:var(--surface-2);border-color:var(--line);color:var(--ink)}
+</style>
+</head>
+<body>
+<!-- Offered once on a phone browser; never when already installed. -->
+<div class="install" id="installBar" hidden>
+  <div class="mark" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="15" height="3.4" rx="1.7"/><rect x="3" y="10.3" width="11" height="3.4" rx="1.7"/><rect x="3" y="15.6" width="7" height="3.4" rx="1.7"/></svg>
+  </div>
+  <div class="install-copy">
+    <b>Add Gist to your Home Screen</b>
+    <span id="installHow"></span>
+  </div>
+  <button class="install-go" id="installGo" hidden>Install</button>
+  <button class="install-x" id="installNo" aria-label="Not now" title="Not now">&#10005;</button>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <div class="gate-card">
+    <div class="gate-mark">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="15" height="3.4" rx="1.7"/><rect x="3" y="10.3" width="11" height="3.4" rx="1.7"/><rect x="3" y="15.6" width="7" height="3.4" rx="1.7"/><path d="M19.4 12.9 14.6 9.7a.6.6 0 0 0-.95.5v6.4c0 .48.53.77.94.5l4.8-3.2a.6.6 0 0 0 0-1Z" opacity=".55"/></svg>
+      </div>
+      <h1 class="wordmark">Gist</h1>
+    </div>
+
+    <h2 id="gateTitle">Sign in</h2>
+    <p class="sub" id="gateSub">Any video, distilled into notes you can question.</p>
+
+    <form id="gateForm">
+      <div class="field">
+        <label for="gateEmail">Email</label>
+        <input id="gateEmail" type="email" autocomplete="email" required />
+      </div>
+      <div class="field">
+        <label for="gatePassword">Password</label>
+        <input id="gatePassword" type="password" autocomplete="current-password" required />
+      </div>
+      <div class="field" id="gateInviteField" hidden>
+        <label for="gateInvite">Invite code</label>
+        <span class="hint">This is an invite-only beta.</span>
+        <input id="gateInvite" autocomplete="off" />
+      </div>
+      <button type="submit" class="primary" id="gateSubmit">Sign in</button>
+      <div class="status" id="gateStatus"></div>
+    </form>
+
+    <div class="gate-switch">
+      <span id="gateSwitchText">Have an invite code?</span>
+      <button type="button" id="gateSwitch">Create an account</button>
+    </div>
+  </div>
+</div>
+
+<div class="bar">
+  <div class="mark">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="15" height="3.4" rx="1.7"/><rect x="3" y="10.3" width="11" height="3.4" rx="1.7"/><rect x="3" y="15.6" width="7" height="3.4" rx="1.7"/><path d="M19.4 12.9 14.6 9.7a.6.6 0 0 0-.95.5v6.4c0 .48.53.77.94.5l4.8-3.2a.6.6 0 0 0 0-1Z" opacity=".55"/></svg>
+  </div>
+  <h1 class="wordmark">Gist</h1>
+  <button class="icon-btn" id="btnNav" type="button" title="Saved notes">&#9776;</button>
+  <div class="spacer"></div>
+  <span class="who-chip" id="whoChip" hidden>
+    <span class="em" id="whoEmail"></span>
+    <span class="plan-tag" id="whoPlan">free</span>
+  </span>
+  <button class="theme-btn" id="btnInvite" type="button" hidden>Invite</button>
+  <button class="theme-btn" id="btnLogout" type="button" hidden>Sign out</button>
+  <button class="theme-btn" id="themeBtn" type="button">Theme</button>
+</div>
+
+
+<div class="probe" id="probe" hidden>
+  <p class="claim" id="probeClaim"></p>
+  <textarea id="probeInstruction" rows="2"
+    placeholder="Optional: what should it look for? e.g. find sources that dispute this"></textarea>
+  <div class="row">
+    <button type="button" id="probeCancel">Cancel</button>
+    <button type="button" class="primary" id="probeGo">Find sources</button>
+  </div>
+</div>
+
+<div class="shell" id="shell">
+
+  <!-- ── Library ── -->
+  <aside class="pane pane-nav" id="paneNav">
+    <button class="new-btn" id="btnNew" type="button">+ New note</button>
+    <div class="nav-head">
+      <span>Saved</span>
+      <span class="nav-right">
+        <button class="refile" id="btnRefile" type="button" hidden>file unfiled</button>
+        <span class="tally" id="bucketTally"></span>
+      </span>
+    </div>
+    <div class="bucket-list" id="bucketList"></div>
+  </aside>
+
+  <!-- ── Document ── -->
+  <main class="pane pane-main">
+    <form class="compose" id="form">
+      <div class="compose-row">
+        <input id="url" placeholder="Paste a link, or describe a topic…" required />
+        <button type="button" id="btnPreview">Preview</button>
+        <button type="submit" class="primary" id="btnNotes">Generate notes</button>
+      </div>
+      <span class="mode-hint" id="modeHint"></span>
+
+      <div class="style" id="style">
+        <div class="style-head">
+          <span class="style-label">Style</span>
+          <button type="button" class="style-more" id="btnCustom">Add instructions</button>
+        </div>
+        <div class="chips" id="styleChips" role="radiogroup" aria-label="Note style"></div>
+        <p class="style-desc" id="styleDesc"></p>
+        <textarea id="extra" rows="2" hidden
+          placeholder="Anything specific — e.g. keep every number, focus on the counterarguments"></textarea>
+      </div>
+
+      <div class="status" id="status"></div>
+      <div id="keywarn" class="status err" hidden></div>
+      <div class="results" id="searchResults"></div>
+    </form>
+
+    <div class="doc-head">
+      <div class="doc-title">
+        <h2 id="outTitle">Notes</h2>
+      </div>
+      <div class="doc-actions">
+        <button id="btnSave" disabled>Save</button>
+        <button id="btnCopy" disabled>Copy</button>
+        <button id="btnDownload" disabled>Download .md</button>
+      </div>
+    </div>
+
+    <div class="result-scroll" id="resultScroll">
+      <div class="idle" id="idle" aria-label="How Gist works">
+        <div class="fc-stack" id="fcStack">
+          <div class="fc fc-ghost fc-g2"></div>
+          <div class="fc fc-ghost fc-g1"></div>
+          <div class="fc fc-front" id="fcCard">
+            <div class="fc-face fc-q"><span class="fc-k">Q</span><p id="fcQ"></p></div>
+            <div class="fc-face fc-a"><span class="fc-k">A</span><p id="fcA"></p></div>
+          </div>
+        </div>
+        <p class="idle-hint">Paste a link or describe a topic above to begin.</p>
+      </div>
+
+      <div class="paper" id="paper" hidden>
+        <div class="notes" id="notes"></div>
+      </div>
+      </div>
+
+      <details class="stream" id="txDetails" style="display:none">
+        <summary>Raw transcript</summary>
+        <pre class="transcript" id="txText"></pre>
+      </details>
+    </div>
+  </main>
+
+  <!-- ── Conversation ── -->
+  <aside class="pane pane-chat chat" id="chatPanel" aria-label="Ask about these notes">
+    <div class="chat-head">
+      <h3>Ask</h3>
+      <span class="note">Grounded in the video</span>
+    </div>
+    <div class="chat-empty" id="chatEmpty">
+      Generate notes, then ask anything about them here.
+    </div>
+    <div class="suggest" id="chatSuggest"></div>
+    <div class="chat-log" id="chatLog"></div>
+    <form class="chat-form" id="chatForm">
+      <textarea id="chatInput" rows="1" placeholder="Ask about these notes…"></textarea>
+      <button type="submit" class="primary" id="chatSend">Ask</button>
+    </form>
+  </aside>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let lastNotesMd = "", lastTitle = "notes";
+
+/* ── Theme: explicit choice stamps data-theme, else the OS decides ── */
+(function(){
+  const root = document.documentElement;
+  let saved = null;
+  try{ saved = localStorage.getItem("yn-theme"); }catch(e){}
+  if(saved === "dark" || saved === "light") root.setAttribute("data-theme", saved);
+
+  /* The two media-query theme-color tags track the OS, not this toggle, so
+     the status bar in the installed app would keep the old colour. Keep the
+     unconditioned one in step with whatever is actually on screen. */
+  function paintStatusBar(){
+    const sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const dark = (root.getAttribute("data-theme") || (sysDark ? "dark" : "light")) === "dark";
+    const el = $("themeColor");
+    if(el) el.setAttribute("content", dark ? "#0b0b14" : "#f3f2f9");
+  }
+  paintStatusBar();
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paintStatusBar);
+
+  $("themeBtn").addEventListener("click", ()=>{
+    const now = root.getAttribute("data-theme");
+    const sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const current = now || (sysDark ? "dark" : "light");
+    const next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try{ localStorage.setItem("yn-theme", next); }catch(e){}
+    paintStatusBar();
+  });
+})();
+
+/* ── Installable: service worker + Add to Home Screen ─────────────
+   The worker makes the app launchable with no network and keeps the saved
+   library readable offline; it deliberately never caches note generation,
+   chat or research. Registration is best-effort — a failure here must not
+   stop the page working, and it is skipped over plain http, where the
+   browser refuses service workers anyway. */
+(function(){
+  const STANDALONE =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+
+  if("serviceWorker" in navigator && window.isSecureContext){
+    window.addEventListener("load", ()=>{
+      navigator.serviceWorker.register("/sw.js").catch(()=>{});
+    });
+  }
+
+  /* A link shared into the app (Android share target) arrives as a query
+     parameter. Put it in the box so the user only has to press Go. */
+  try{
+    const q = new URLSearchParams(location.search);
+    const shared = q.get("url") || q.get("text");
+    if(shared && $("url") && !$("url").value){
+      $("url").value = shared.trim();
+      history.replaceState(null, "", location.pathname);
+    }
+  }catch(e){}
+
+  const bar = $("installBar"), go = $("installGo"), how = $("installHow");
+  const DISMISSED = "gist-install-dismissed";
+  let dismissed = false;
+  try{ dismissed = localStorage.getItem(DISMISSED) === "1"; }catch(e){}
+  if(STANDALONE || dismissed) return;
+
+  function close(remember){
+    bar.hidden = true;
+    if(remember){ try{ localStorage.setItem(DISMISSED, "1"); }catch(e){} }
+  }
+  $("installNo").addEventListener("click", ()=> close(true));
+
+  /* Chrome and Edge hand us a real install prompt. */
+  let deferred = null;
+  window.addEventListener("beforeinstallprompt", (e)=>{
+    e.preventDefault();
+    deferred = e;
+    how.textContent = "One tap, and it opens like an app — full screen, its own icon.";
+    go.hidden = false;
+    bar.hidden = false;
+  });
+  go.addEventListener("click", async ()=>{
+    if(!deferred) return;
+    close(true);
+    deferred.prompt();
+    deferred = null;
+  });
+  window.addEventListener("appinstalled", ()=> close(true));
+
+  /* Safari on iOS has no such event: the only route is the Share sheet, so
+     say so rather than showing a button that cannot work. In-app browsers
+     (Chrome, Firefox, Facebook) on iOS cannot install at all — no prompt
+     for them. */
+  const ua = navigator.userAgent;
+  const iOS = /iPad|iPhone|iPod/.test(ua) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const realSafari = !/CriOS|FxiOS|EdgiOS|OPiOS|FBAN|FBAV|Instagram/.test(ua);
+  if(iOS && realSafari){
+    how.innerHTML = 'Tap <kbd>Share</kbd> below, then <kbd>Add to Home Screen</kbd>.';
+    setTimeout(()=>{ if(!deferred) bar.hidden = false; }, 1800);
+  }
+})();
+
+/* Drop the example treatment the first time real content lands. */
+/* ─────────────────────────────────────────────────────────────
+   Idle flashcards. Question, flip to answer, slide to the next.
+   Runs only while nothing is loaded; pauses under the cursor.
+   ───────────────────────────────────────────────────────────── */
+const IDLE_CARDS = [
+  ["What does Gist do?",          "Turns any video into notes you can question."],
+  ["Which sites work?",           "YouTube, Instagram, Facebook, TikTok, X, Vimeo and more."],
+  ["No captions on the video?",   "The audio gets transcribed automatically."],
+  ["Unsure about a claim?",       "Hover any line and press ⌕ sources to check it."],
+  ["Where do saved notes go?",    "Filed by subject in the library, with the reasoning kept."],
+];
+let idleI = 0, idleTimer = null, idlePaused = false;
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function idleShow(i){
+  $("fcQ").textContent = IDLE_CARDS[i][0];
+  $("fcA").textContent = IDLE_CARDS[i][1];
+}
+function idleStep(){
+  if(idlePaused || $("idle").hidden) return idleSchedule();
+  const card = $("fcCard");
+  if(!card.classList.contains("flipped")){
+    card.classList.add("flipped");                 // question -> answer
+    return idleSchedule(2600);
+  }
+  card.classList.add("leaving");                   // answer -> next question
+  setTimeout(() => {
+    idleI = (idleI + 1) % IDLE_CARDS.length;
+    card.classList.remove("flipped", "leaving");
+    card.classList.add("entering");
+    idleShow(idleI);
+    requestAnimationFrame(() => requestAnimationFrame(() => card.classList.remove("entering")));
+    idleSchedule(2600);
+  }, REDUCED ? 0 : 380);
+}
+function idleSchedule(ms = 2600){
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(idleStep, REDUCED ? 4200 : ms);
+}
+function idleStart(){
+  $("idle").hidden = false; $("paper").hidden = true;
+  $("fcCard").classList.remove("flipped", "leaving", "entering");
+  idleShow(idleI); idleSchedule();
+}
+$("fcStack").addEventListener("mouseenter", () => idlePaused = true);
+$("fcStack").addEventListener("mouseleave", () => idlePaused = false);
+$("fcStack").addEventListener("click", () => { idlePaused = false; clearTimeout(idleTimer); idleStep(); });
+idleStart();
+
+/* Something real is about to be shown: put the deck away. */
+function clearExample(){
+  clearTimeout(idleTimer);
+  $("idle").hidden = true;
+  $("paper").hidden = false;
+}
+
+async function checkHealth(){
+  try{
+    const r = await fetch("/api/health"); const h = await r.json();
+    const missing = [];
+    if(!h.anthropic_key) missing.push("ANTHROPIC_API_KEY");
+    if(!h.openai_key) missing.push("OPENAI_API_KEY");
+    if(missing.length===2){
+      const w = $("keywarn");
+      w.style.display = "";
+      w.textContent = "No API keys set. Add one to .env to generate notes and to transcribe videos that have no captions. YouTube captions still work without a key.";
+    }
+  }catch(e){}
+}
+checkHealth();
+
+function setStatus(msg, {busy=false, err=false}={}){
+  const s = $("status");
+  s.className = "status" + (err ? " err":"");
+  s.innerHTML = (busy ? '<span class="spinner"></span>' : "") + (msg||"");
+}
+
+function payload(){
+  return {
+    url: $("url").value.trim(),
+    extra: styleInstruction(),
+  };
+}
+
+async function preview(){
+  const body = payload();
+  if(!body.url){ setStatus("Enter a link first.", {err:true}); return; }
+  setStatus("Fetching transcript…", {busy:true});
+  try{
+    const r = await fetch("/api/transcript",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({url:body.url})});
+    const d = await r.json();
+    if(!r.ok){ setStatus(d.error||"Failed.", {err:true}); return; }
+    $("txDetails").style.display="";
+    $("txDetails").open = true;
+    $("txText").textContent = d.text;
+    setStatus(`Transcript ready (${d.chars.toLocaleString()} chars).`);
+  }catch(e){ setStatus("Network error: "+e.message, {err:true}); }
+}
+
+async function makeNotes(ev){
+  ev.preventDefault();
+  const raw = $("url").value.trim();
+  if(!raw){ setStatus("Paste a link, or describe what you want to watch.", {err:true}); return; }
+  if(!looksLikeLink(raw)){ return runSearch(raw); }
+
+  $("btnNotes").disabled = $("btnPreview").disabled = true;
+  setStatus("Starting…", {busy:true});
+  try{
+    const d = await runJob("/api/notes", payload(),
+                           step => setStatus(step + "…", {busy:true}));
+    lastNotesMd = d.notes; lastTitle = d.title;
+    clearExample();
+    $("notes").className = "notes";
+    $("notes").innerHTML = marked.parse(d.notes);
+    attachResearch();
+    $("outTitle").innerHTML = (d.title || "Notes") + " <span class='badge'>done</span>";
+    $("btnCopy").disabled = $("btnDownload").disabled = false;
+    $("btnSave").disabled = false; $("btnSave").textContent = "Save";
+    openChat(d.session);
+    setStatus("Notes generated. Ask a follow-up below.");
+  }catch(e){ setStatus(e.message, {err:true}); }
+  finally{ $("btnNotes").disabled = $("btnPreview").disabled = false; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   Follow-up chat about the generated notes
+   ───────────────────────────────────────────────────────────── */
+let chatSession = null;
+let chatHistory = [];
+let chatBusy = false;
+
+const SUGGESTIONS = [
+  "Summarise this in three sentences",
+  "Explain the hardest part more simply",
+  "What did it leave out?",
+  "Quiz me on this",
+];
+
+function openChat(session){
+  chatSession = session || null;
+  chatHistory = [];
+  $("chatLog").innerHTML = "";
+  $("chatPanel").classList.add("on");
+
+  const box = $("chatSuggest");
+  box.innerHTML = "";
+  SUGGESTIONS.forEach(text => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = text;
+    b.addEventListener("click", () => { $("chatInput").value = text; sendChat(); });
+    box.appendChild(b);
+  });
+}
+
+function addMsg(role, html, kind){
+  const wrap = document.createElement("div");
+  wrap.className = "msg " + (kind || (role === "user" ? "user" : "bot"));
+
+  const who = document.createElement("div");
+  who.className = "who";
+  who.textContent = role === "user" ? "You" : "AI";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.innerHTML = html;
+
+  wrap.append(who, bubble);
+  $("chatLog").appendChild(wrap);
+  $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  return wrap;
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => (
+    {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]
+  ));
+}
+
+async function sendChat(ev){
+  if(ev) ev.preventDefault();
+  if(chatBusy) return;
+
+  const input = $("chatInput");
+  const question = input.value.trim();
+  if(!question) return;
+
+  $("chatSuggest").innerHTML = "";
+  addMsg("user", escapeHtml(question));
+  input.value = "";
+  input.style.height = "auto";
+
+  chatBusy = true;
+  $("chatSend").disabled = true;
+  const thinking = addMsg("bot", '<span class="dots"><i></i><i></i><i></i></span>');
+
+  try{
+    const r = await fetch("/api/chat", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        session: chatSession,
+        question,
+        history: chatHistory.slice(-6),
+        // Fallbacks if the server restarted and lost the session.
+        notes: lastNotesMd,
+        title: lastTitle,
+      }),
+    });
+    const d = await r.json();
+    thinking.remove();
+
+    if(!r.ok || d.error){
+      addMsg("bot", escapeHtml(d.error || "Something went wrong."), "bot err");
+    }else{
+      addMsg("bot", marked.parse(d.answer));
+      chatHistory.push({role:"user", content:question},
+                       {role:"assistant", content:d.answer});
+    }
+  }catch(e){
+    thinking.remove();
+    addMsg("bot", escapeHtml("Network error: " + e.message), "bot err");
+  }finally{
+    chatBusy = false;
+    $("chatSend").disabled = false;
+    input.focus();
+  }
+}
+
+$("chatForm").addEventListener("submit", sendChat);
+
+/* Enter sends, Shift+Enter makes a new line; the box grows with the text. */
+$("chatInput").addEventListener("keydown", e => {
+  if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendChat(); }
+});
+$("chatInput").addEventListener("input", e => {
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
+});
+
+/* ⌘/Ctrl+Enter anywhere in the form generates notes. */
+$("form").addEventListener("keydown", e => {
+  if(e.key === "Enter" && (e.metaKey || e.ctrlKey)){
+    e.preventDefault();
+    if(!$("btnNotes").disabled) $("form").requestSubmit();
+  }
+});
+
+
+/* ─────────────────────────────────────────────────────────────
+   Slow work runs as a job: start it, then poll until it lands.
+   Same contract the iOS app uses — a four-minute request cannot
+   survive a phone backgrounding the app.
+   ───────────────────────────────────────────────────────────── */
+async function runJob(path, body, onStep){
+  const r = await fetch(path, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(body),
+  });
+  const started = await r.json();
+  if(!r.ok || !started.job) throw new Error(started.error || "Could not start the job.");
+
+  let delay = 900;
+  for(;;){
+    await new Promise(res => setTimeout(res, delay));
+    delay = Math.min(delay * 1.25, 4000);          // ease off on long jobs
+    const jr = await fetch(`/api/jobs/${started.job}`);
+    const j = await jr.json();
+    if(!jr.ok) throw new Error(j.error || "Lost track of the job.");
+    if(j.step && onStep) onStep(j.step);
+    if(j.status === "done") return j.result;
+    if(j.status === "error") throw new Error(j.error || "The job failed.");
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Topic search
+   ───────────────────────────────────────────────────────────── */
+function fmtDuration(sec){
+  if(!sec && sec !== 0) return "";
+  const s = Math.round(sec), h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+  return h ? `${h}h ${m}m` : `${m}m ${String(s%60).padStart(2,"0")}s`;
+}
+function fmtViews(n){
+  if(!n) return "";
+  if(n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,"") + "M views";
+  if(n >= 1e3) return Math.round(n/1e3) + "K views";
+  return n + " views";
+}
+
+
+/* Is this a link (or bare YouTube id), or a topic to search for? */
+const YT_ID = /^[0-9A-Za-z_-]{11}$/;
+function looksLikeLink(v){
+  const t = (v || "").trim();
+  if(!t || /\s/.test(t)) return false;          // any whitespace means prose
+  if(YT_ID.test(t)) return true;
+  if(/^https?:\/\//i.test(t)) return true;
+  return /^[\w-]+(\.[\w-]+)+\//.test(t) || /^[\w-]+(\.[\w-]+)+$/.test(t);
+}
+
+function refreshMode(){
+  const v = $("url").value;
+  const link = looksLikeLink(v);
+  const empty = !v.trim();
+  $("btnNotes").textContent = link || empty ? "Generate notes" : "Search videos";
+  $("btnPreview").hidden = !link;
+  $("modeHint").innerHTML = empty ? ""
+    : link ? "detected a <b>link</b> — will generate notes"
+           : "looks like a <b>topic</b> — will search for videos";
+}
+$("url").addEventListener("input", refreshMode);
+refreshMode();
+
+async function runSearch(query){
+  $("btnNotes").disabled = true;
+  $("searchResults").innerHTML = "";
+  setStatus("Searching…", {busy:true});
+  try{
+    const r = await fetch("/api/search", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({query, limit:8}),
+    });
+    const d = await r.json();
+    if(!r.ok || d.error){ setStatus(d.error || "Search failed.", {err:true}); return; }
+    if(!d.results.length){ setStatus("Nothing found. Try different words."); return; }
+
+    setStatus(`${d.count} results — pick one to load it.`);
+    d.results.forEach((v, i) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "result";
+      b.innerHTML = `<span class="idx">${String(i+1).padStart(2,"0")}</span>
+        <span><span class="rt"></span><span class="rm"></span></span>`;
+      b.querySelector(".rt").textContent = v.title;
+      b.querySelector(".rm").textContent =
+        [v.uploader, fmtDuration(v.duration), fmtViews(v.views)].filter(Boolean).join(" · ");
+      b.addEventListener("click", () => {
+        $("url").value = v.url;
+        $("searchResults").innerHTML = "";
+        refreshMode();
+        setStatus(`Loaded: ${v.title.slice(0,60)} — press Generate notes.`);
+        $("btnNotes").focus();
+      });
+      $("searchResults").appendChild(b);
+    });
+  }catch(e){
+    setStatus("Network error: " + e.message, {err:true});
+  }finally{
+    $("btnNotes").disabled = false;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Saved notes bucket
+   ───────────────────────────────────────────────────────────── */
+function fmtWhen(ts){
+  const d = new Date(ts * 1000), now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  return sameDay
+    ? d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})
+    : d.toLocaleDateString([], {month:"short", day:"numeric"});
+}
+
+async function loadBucket(){
+  try{
+    const r = await fetch("/api/saved");
+    if(r.status === 401 && needsAuth){ applyUser(null); return; }
+    const d = await r.json();
+    const list = $("bucketList");
+    list.innerHTML = "";
+    $("bucketTally").textContent = d.count || "";
+
+    if(!d.notes.length){
+      list.innerHTML = '<div class="bucket-empty">Nothing saved yet.<br>'
+        + 'Generate notes, then press <strong>Save</strong> to keep them here.</div>';
+      return;
+    }
+
+    // Notes arrive grouped by folder; render a heading each time it changes.
+    const folders = new Map();
+    d.notes.forEach(n => {
+      const key = n.category || "Unfiled";
+      if(!folders.has(key)) folders.set(key, []);
+      folders.get(key).push(n);
+    });
+
+    // Offer to file anything the classifier has not placed yet.
+    const unfiled = (folders.get("Unfiled") || []).length;
+    $("btnRefile").hidden = unfiled === 0;
+    $("btnRefile").textContent = `file ${unfiled}`;
+
+    folders.forEach((notes, name) => {
+      const head = document.createElement("div");
+      head.className = "folder";
+      head.innerHTML = `<span class="fname"></span><span class="fcount">${notes.length}</span>`;
+      head.querySelector(".fname").textContent = name;
+      list.appendChild(head);
+
+      const deck = document.createElement("div");
+      deck.className = "deck";
+      notes.forEach(n => deck.appendChild(bucketCard(n)));
+      list.appendChild(deck);
+    });
+  }catch(e){ /* the bucket is not worth an error state on load */ }
+}
+
+function bucketCard(n){
+  const card = document.createElement("div");
+  card.className = "card";
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  card.dataset.id = n.id;
+  if(n.platform) card.dataset.p = n.platform;
+
+  const title = document.createElement("p"); title.className = "ct";
+  title.textContent = n.label || n.title;          // the point in dispute
+  if(n.subject && n.title && n.subject !== n.title){
+    const src = document.createElement("p");
+    src.className = "cs"; src.textContent = n.title;
+    card.dataset.src = "1";
+    card._src = src;
+  }
+  const prev  = document.createElement("p"); prev.className  = "cp"; prev.textContent  = n.preview || "";
+  const why = document.createElement("p");
+  why.className = "cw";
+  why.textContent = n.category_reason || "";
+  if(n.category_reason) card.title = "Filed under " + (n.category || "Unfiled") + " — " + n.category_reason;
+
+  const meta  = document.createElement("div"); meta.className = "cm";
+  if(n.platform){
+    const tag = document.createElement("span"); tag.className = "tag";
+    tag.textContent = n.platform; meta.appendChild(tag);
+  }
+  const when = document.createElement("span");
+  when.textContent = `${fmtWhen(n.created_at)} · ${(n.notes_chars/1000).toFixed(1)}k chars`;
+  meta.appendChild(when);
+
+  const del = document.createElement("button");
+  del.className = "del"; del.type = "button"; del.textContent = "×";
+  del.title = "Delete this saved note";
+  del.addEventListener("click", async ev => {
+    ev.stopPropagation();
+    await fetch(`/api/saved/${n.id}`, {method:"DELETE"});
+      });
+
+  const open = () => {
+    document.querySelectorAll("#bucketList .card").forEach(c => c.classList.remove("active"));
+    card.classList.add("active", "pop");
+    setTimeout(() => card.classList.remove("pop"), 360);
+    openSaved(n.id);
+  };
+  card.addEventListener("click", open);
+  card.addEventListener("keydown", e => {
+    if(e.key === "Enter" || e.key === " "){ e.preventDefault(); open(); }
+  });
+
+  card.append(title);
+  if(card._src) card.append(card._src);
+  card.append(prev, why, meta, del);
+  return card;
+}
+
+async function openSaved(id){
+  setStatus("Opening saved notes…", {busy:true});
+  try{
+    const r = await fetch(`/api/saved/${id}`);
+    const d = await r.json();
+    if(!r.ok || d.error){ setStatus(d.error || "Could not open that note.", {err:true}); return; }
+
+    lastNotesMd = d.notes; lastTitle = d.title;
+    clearExample();
+    $("notes").className = "notes";
+    $("notes").innerHTML = marked.parse(d.notes);
+    attachResearch();
+    $("outTitle").innerHTML = (d.subject || "Notes") + " <span class='badge'>saved</span>";
+    $("btnCopy").disabled = $("btnDownload").disabled = false;
+    $("btnSave").disabled = true;          // already in the bucket
+    if(d.url) $("url").value = d.url;
+    $("txDetails").style.display = "none";
+    openChat(d.session);
+    setStatus("Opened from your saved notes.");
+    $("paneNav").classList.remove("open");
+    $("resultScroll").scrollTop = 0;
+  }catch(e){ setStatus("Network error: " + e.message, {err:true}); }
+}
+
+$("btnSave").addEventListener("click", async () => {
+  if(!lastNotesMd) return;
+  $("btnSave").disabled = true;
+  const original = $("btnSave").textContent;
+  $("btnSave").textContent = "Saving…";
+  try{
+    const r = await fetch("/api/saved", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        session: chatSession, notes: lastNotesMd, title: lastTitle,
+        url: $("url").value.trim(), topic: styleInstruction(),
+      }),
+    });
+    const d = await r.json();
+    if(!r.ok || d.error){
+      setStatus(d.error || "Could not save.", {err:true});
+      $("btnSave").disabled = false; $("btnSave").textContent = original;
+      return;
+    }
+    $("btnSave").textContent = "Saved";
+    loadBucket();
+  }catch(e){
+    setStatus("Network error: " + e.message, {err:true});
+    $("btnSave").disabled = false; $("btnSave").textContent = original;
+  }
+});
+
+loadBucket();
+
+
+/* ─────────────────────────────────────────────────────────────
+   Accounts: the sign-in gate, identity, invites
+   ───────────────────────────────────────────────────────────── */
+let me = null;
+let gateMode = "login";          // "login" | "register"
+let needsAuth = true;            // replaced by /api/auth/me
+
+function setGateStatus(msg, {busy=false, err=false}={}){
+  const el = $("gateStatus");
+  el.className = "status" + (err ? " err" : "");
+  el.innerHTML = (busy ? '<span class="spinner"></span>' : "") + (msg || "");
+}
+
+function setGateMode(mode){
+  gateMode = mode;
+  const reg = mode === "register";
+  $("gateTitle").textContent  = reg ? "Create your account" : "Sign in";
+  $("gateSub").textContent    = reg
+    ? "You will need an invite code to join the beta."
+    : "Turn any video into structured notes you can question.";
+  $("gateSubmit").textContent = reg ? "Create account" : "Sign in";
+  $("gateInviteField").hidden = !reg;
+  $("gateInvite").required    = reg;
+  $("gatePassword").setAttribute("autocomplete", reg ? "new-password" : "current-password");
+  $("gateSwitchText").textContent = reg ? "Already have an account?" : "Have an invite code?";
+  $("gateSwitch").textContent     = reg ? "Sign in instead" : "Create an account";
+  setGateStatus("");
+}
+
+function applyUser(user, authRequired){
+  me = user;
+  if(authRequired !== undefined) needsAuth = authRequired;
+  const signedIn = !!user;
+
+  // With auth switched off there is nothing to sign in to: go straight in.
+  $("gate").hidden = signedIn || !needsAuth;
+  document.body.style.overflow = ($("gate").hidden ? "" : "hidden");
+
+  $("whoChip").hidden   = !(signedIn && needsAuth);
+  $("btnLogout").hidden = !(signedIn && needsAuth);
+  $("btnInvite").hidden = !(signedIn && needsAuth && user.is_admin);
+
+  if(signedIn){
+    $("whoEmail").textContent = user.email;
+    $("whoPlan").textContent  = user.plan;
+    $("whoPlan").className    = "plan-tag" + (user.plan === "pro" ? " pro" : "");
+    loadBucket();
+  }
+}
+
+const LAST_USER = "gist-last-user";
+
+async function checkSession(){
+  try{
+    const r = await fetch("/api/auth/me");
+    const d = await r.json();
+    applyUser(d.user, d.auth_required);
+    try{
+      if(d.user) localStorage.setItem(LAST_USER, JSON.stringify(d.user));
+      else localStorage.removeItem(LAST_USER);
+    }catch(e){}
+  }catch(e){
+    /* Offline. Falling back to "signed out" puts up a full-screen gate that
+       cannot be passed without a network, which would make the whole offline
+       mode unreachable. Trust the last known identity instead; every write
+       still fails closed at the server. */
+    let last = null;
+    try{ last = JSON.parse(localStorage.getItem(LAST_USER) || "null"); }catch(e2){}
+    applyUser(last);
+    if(last) setStatus("Offline — showing your saved notes.", {});
+  }
+}
+
+$("gateSwitch").addEventListener("click", () => {
+  setGateMode(gateMode === "login" ? "register" : "login");
+});
+
+$("gateForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const email = $("gateEmail").value.trim();
+  const password = $("gatePassword").value;
+  const invite = $("gateInvite").value.trim();
+  if(!email || !password) return;
+
+  $("gateSubmit").disabled = true;
+  setGateStatus(gateMode === "register" ? "Creating your account…" : "Signing in…", {busy:true});
+  try{
+    const path = gateMode === "register" ? "/api/auth/register" : "/api/auth/login";
+    const body = gateMode === "register" ? {email, password, invite} : {email, password};
+    const r = await fetch(path, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if(!r.ok || d.error){ setGateStatus(d.error || "That did not work.", {err:true}); return; }
+    setGateStatus("");
+    $("gatePassword").value = "";
+    applyUser(d.user);
+    checkHealth();
+  }catch(err){
+    setGateStatus("Network error: " + err.message, {err:true});
+  }finally{
+    $("gateSubmit").disabled = false;
+  }
+});
+
+$("btnLogout").addEventListener("click", async () => {
+  await fetch("/api/auth/logout", {method:"POST"});
+  // cache.match ignores cookies, so without this the next person to use the
+  // phone sees the previous user's library as soon as they go offline.
+  try{
+    localStorage.removeItem(LAST_USER);
+    navigator.serviceWorker?.controller?.postMessage({type:"wipe"});
+  }catch(e){}
+  location.reload();
+});
+
+$("btnInvite").addEventListener("click", async () => {
+  const r = await fetch("/api/auth/invites", {method:"POST"});
+  const d = await r.json();
+  if(d.code){
+    try{ await navigator.clipboard.writeText(d.code); }catch(e){}
+    $("btnInvite").textContent = "Copied " + d.code;
+    setTimeout(() => $("btnInvite").textContent = "Invite", 4000);
+  }
+});
+
+setGateMode("login");
+checkSession();
+
+
+/* ─────────────────────────────────────────────────────────────
+   Style presets. Most people want one of a handful of shapes; the
+   free-text box is there for the rest and stays out of the way.
+   ───────────────────────────────────────────────────────────── */
+const STYLES = [
+  ["Study notes", "", "Thorough, structured notes on whatever the video is about."],
+  ["Summary", "A tight summary: a short overview and 5–8 key points. Skip the detailed section.",
+    "Overview plus the key points, nothing more."],
+  ["Arguments", "Lay out each claim made, the reasoning behind it, and any counterpoint raised. Keep every number, name and citation exactly.",
+    "Claims, reasoning and counterpoints — built for debates."],
+  ["Key quotes", "Pull the most important verbatim quotes, grouped by theme, each with who said it. Keep the speaker's exact words.",
+    "The speaker's own words, grouped by theme."],
+  ["Step by step", "Present the content as an ordered sequence of steps or stages, in the order they happen.",
+    "An ordered walk-through, in sequence."],
+  ["Flashcards", "Turn the content into question → answer pairs for revision. One idea per card.",
+    "Question and answer pairs for revision."],
+];
+let styleIdx = 0;
+
+function styleInstruction(){
+  const preset = STYLES[styleIdx][1];
+  const custom = $("extra").value.trim();
+  return [preset, custom].filter(Boolean).join("\n\n");
+}
+
+function renderStyles(){
+  const box = $("styleChips");
+  box.innerHTML = "";
+  STYLES.forEach(([name], i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(i === styleIdx));
+    b.textContent = name;
+    b.addEventListener("click", () => { styleIdx = i; renderStyles(); });
+    box.appendChild(b);
+  });
+  $("styleDesc").textContent = STYLES[styleIdx][2];
+}
+renderStyles();
+
+$("btnCustom").addEventListener("click", () => {
+  const t = $("extra");
+  t.hidden = !t.hidden;
+  $("btnCustom").textContent = t.hidden ? "Add instructions" : "Hide instructions";
+  if(!t.hidden) t.focus();
+});
+
+/* Start a fresh note: clear the document and the conversation. */
+$("btnNew").addEventListener("click", () => {
+  $("url").value = ""; $("extra").value = "";
+  $("searchResults").innerHTML = "";
+  lastNotesMd = ""; lastTitle = "notes";
+  $("notes").className = "notes";
+  $("notes").innerHTML = "";
+  idleStart();
+  $("outTitle").textContent = "Notes";
+  $("btnSave").disabled = $("btnCopy").disabled = $("btnDownload").disabled = true;
+  $("btnSave").textContent = "Save";
+  $("txDetails").style.display = "none";
+  $("chatPanel").classList.remove("on");
+  $("chatLog").innerHTML = ""; $("chatSuggest").innerHTML = "";
+  chatSession = null; chatHistory = [];
+  setStatus(""); refreshMode();
+  $("paneNav").classList.remove("open");
+  $("url").focus();
+});
+
+/* The library is a drawer on a phone, a permanent pane on a desktop. */
+$("btnNav").addEventListener("click", () => $("paneNav").classList.toggle("open"));
+
+/* Read every unfiled note and put it where it belongs. */
+$("btnRefile").addEventListener("click", async () => {
+  const btn = $("btnRefile");
+  btn.disabled = true; btn.textContent = "filing…";
+  setStatus("Reading unfiled notes and filing them…", {busy:true});
+  try{
+    const r = await fetch("/api/saved/refile", {method:"POST"});
+    const d = await r.json();
+    if(!r.ok || d.error){ setStatus(d.error || "Could not refile.", {err:true}); return; }
+    const n = d.moved.length;
+    setStatus(n
+      ? `Filed ${n} note${n===1?"":"s"}: ` + d.moved.map(m => m.category).join(", ")
+      : "Nothing could be placed — those notes may be too short to classify.");
+    loadBucket();
+  }catch(e){
+    setStatus("Network error: " + e.message, {err:true});
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+
+/* ─────────────────────────────────────────────────────────────
+   Find sources: hover any line of the notes, then send it to the
+   research agent with optional instructions.
+   ───────────────────────────────────────────────────────────── */
+let probeTarget = null;
+
+function claimOf(el){
+  const clone = el.cloneNode(true);
+  clone.querySelectorAll(".find").forEach(b => b.remove());
+  return (clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+/* Attach a "sources" button to every substantive line of the notes. */
+function attachResearch(){
+  $("notes").querySelectorAll("li, p, blockquote").forEach(el => {
+    if(el.querySelector(":scope > .find")) return;
+    if(el.closest(".find-card")) return;
+    if(claimOf(el).length < 24) return;              // too short to research
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "find"; b.textContent = "⌕ sources";
+    b.addEventListener("click", ev => { ev.stopPropagation(); openProbe(el); });
+    el.appendChild(b);
+  });
+}
+
+function openProbe(el){
+  probeTarget = el;
+  const probe = $("probe");
+  $("probeClaim").textContent = claimOf(el);
+  $("probeInstruction").value = "";
+  probe.hidden = false;
+
+  const r = el.getBoundingClientRect();
+  const w = probe.offsetWidth;
+  let left = Math.min(r.right - w, window.innerWidth - w - 14);
+  probe.style.left = Math.max(14, left) + "px";
+  probe.style.top = Math.min(r.bottom + 8, window.innerHeight - probe.offsetHeight - 14) + "px";
+  $("probeInstruction").focus();
+}
+
+function closeProbe(){
+  $("probe").hidden = true;
+  probeTarget = null;
+}
+$("probeCancel").addEventListener("click", closeProbe);
+document.addEventListener("keydown", e => { if(e.key === "Escape") closeProbe(); });
+document.addEventListener("mousedown", e => {
+  if(!$("probe").hidden && !$("probe").contains(e.target) && !e.target.closest(".find")) closeProbe();
+});
+
+function relIcon(r){
+  return {supports:"supports", disputes:"disputes", context:"context"}[r] || r;
+}
+
+function renderFindings(d){
+  if(!d.findings.length){
+    return `<div class="find-none">Looked through ${d.searched} candidate video${d.searched===1?"":"s"} and read ${d.read}. Nothing spoke to this directly — try narrowing the instruction.</div>`;
+  }
+  const cards = d.findings.map(f => `
+    <div class="find-card" data-r="${escapeHtml(f.relation)}">
+      <div class="rel">${escapeHtml(relIcon(f.relation))}</div>
+      <div class="ft">${escapeHtml(f.title)}</div>
+      <p class="fq">“${escapeHtml(f.quote)}”</p>
+      <p class="fn">${escapeHtml(f.note)}</p>
+      <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener">
+        open${f.timestamp ? " · " + escapeHtml(f.timestamp) : ""}</a>
+    </div>`).join("");
+  return `<div class="finds">${cards}</div>` +
+         (d.verdict ? `<p>${escapeHtml(d.verdict)}</p>` : "");
+}
+
+async function runResearch(){
+  if(!probeTarget) return;
+  const claim = claimOf(probeTarget);
+  const instruction = $("probeInstruction").value.trim();
+  const el = probeTarget;
+  closeProbe();
+
+  el.classList.add("researching");
+  $("chatPanel").classList.add("on");
+  $("chatSuggest").innerHTML = "";
+  addMsg("user", escapeHtml("⌕ " + claim.slice(0,160) + (instruction ? " — " + instruction : "")));
+  const thinking = addMsg("bot",
+    '<span class="dots"><i></i><i></i><i></i></span> searching and reading sources…');
+
+  try{
+    const d = await runJob("/api/research", {claim, instruction, session: chatSession});
+    thinking.remove();
+    addMsg("bot", renderFindings(d));
+    chatHistory.push(
+      {role:"user", content:"Find sources for: " + claim},
+      {role:"assistant", content:(d.verdict || "") + " " +
+        d.findings.map(f => `${f.relation}: ${f.title} — "${f.quote}"`).join(" ")},
+    );
+  }catch(e){
+    thinking.remove();
+    addMsg("bot", escapeHtml("Network error: " + e.message), "bot err");
+  }finally{
+    el.classList.remove("researching");
+  }
+}
+$("probeGo").addEventListener("click", runResearch);
+
+$("btnPreview").addEventListener("click", preview);
+$("form").addEventListener("submit", makeNotes);
+
+$("btnCopy").addEventListener("click", async ()=>{
+  await navigator.clipboard.writeText(lastNotesMd);
+  $("btnCopy").textContent = "Copied";
+  setTimeout(()=>$("btnCopy").textContent="Copy", 1200);
+});
+$("btnDownload").addEventListener("click", ()=>{
+  const blob = new Blob([lastNotesMd],{type:"text/markdown"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (lastTitle||"notes").replace(/[^\w\- ]+/g,"").trim().slice(0,60) + ".md";
+  a.click(); URL.revokeObjectURL(a.href);
+});
+</script>
+</body>
+</html>

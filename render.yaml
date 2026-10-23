@@ -1,0 +1,60 @@
+# Render blueprint for Gist.
+#
+# Create the service by pointing Render at this repo ("New → Blueprint"); it
+# reads this file instead of you filling in a form. Secrets are deliberately
+# NOT here — every `sync: false` key is one you type into the Render dashboard
+# once, so no key ever reaches git.
+
+services:
+  - type: web
+    name: gist
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter          # the free plan has no disk and sleeps after 15 min
+    region: frankfurt      # change to oregon/singapore if you are further away
+    healthCheckPath: /api/health
+
+    # The "folder as a database": real block storage, kept across deploys and
+    # restarts. A service with a disk runs exactly one instance, which is what
+    # this app needs anyway.
+    disk:
+      name: gist-data
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      - key: DATA_DIR
+        value: /var/data            # notes.db lives here
+      - key: COOKIE_SECURE
+        value: "1"                  # HTTPS only — Render terminates TLS
+      - key: REQUIRE_AUTH
+        value: "1"                  # the code also fails closed without it
+
+      # Daily per-user ceilings on the endpoints that cost money. Generous
+      # for a person, ruinous for a retry loop. Set to 0 to disable one.
+      - key: LIMIT_NOTES
+        value: "60"
+      - key: LIMIT_RESEARCH
+        value: "40"
+      - key: LIMIT_TRANSCRIPT
+        value: "60"
+      - key: LIMIT_REFILE
+        value: "10"
+      # Largest media file we will pull before transcribing. Four job workers
+      # can download at once, and temp files are on the container's own disk.
+      - key: MAX_SOURCE_BYTES
+        value: "157286400"          # 150 MB
+      - key: NOTE_PROVIDER
+        value: openai               # Groq speaks the OpenAI protocol
+      - key: OPENAI_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: OPENAI_MODEL
+        value: openai/gpt-oss-120b
+
+      # Typed into the Render dashboard, never committed.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: APIFY_TOKEN
+        sync: false
+      - key: ADMIN_EMAIL           # the first account registered with this
+        sync: false                # address becomes the admin

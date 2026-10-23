@@ -1,0 +1,32 @@
+# Secrets. The bare pattern ".env" matches only that exact filename, so every
+# sibling has to be named too — .env.backup is written by the provider-switch
+# script and holds a full set of live keys.
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Local database and anything derived from it. The deployed app keeps its data
+# on a mounted disk, never in the repo.
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+*.tsbuildinfo
+
+# macOS
+.DS_Store
