@@ -359,7 +359,7 @@
   /* ── 4b. Document ────────────────────────────────────────────── */
   .compose{flex:none;margin-bottom:12px}
   .compose-row{display:flex;gap:8px}
-  .compose-row input{flex:1;font-family:var(--mono);font-size:13px}
+  .compose-row input{flex:1;min-width:0;font-family:var(--mono);font-size:13px}
   .compose-row button{flex:0 0 auto;padding:0 14px;height:38px;white-space:nowrap}
   .mode-hint{display:block;font-size:10.5px;letter-spacing:.04em;color:var(--ink-3);min-height:14px;margin-top:6px}
   .mode-hint b{color:var(--brand);font-weight:500}
@@ -645,14 +645,26 @@
     .doc-actions{width:100%}
     .card{margin-top:8px;transform:none !important}
     .deck .card:first-child{margin-top:0}
-    .cs{
-    margin:0 0 6px 4px;font-size:10.5px;line-height:1.4;color:var(--ink-3);
-    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
-    max-height:0;opacity:0;transition:max-height .24s ease,opacity .18s ease;
+
+    /* There is no hover on a touch screen, so anything that reveals itself
+       on :hover is invisible here. Show the card subtitle and reasoning
+       outright rather than hiding them behind a gesture that cannot happen. */
+    .cs,.cw{max-height:none;opacity:1}
+
+    /* The bar holds a wordmark, an identity chip and three buttons. Below
+       420px that does not fit, and the overflow pushes the page sideways. */
+    .bar{gap:8px;padding:0 14px}
+    .who-chip .em{max-width:110px}
+    .shell{padding-bottom:84px}   /* clear the fixed install prompt */
   }
-  .card:hover .cs,.card.active .cs{max-height:20px;opacity:1}
-  .cw{max-height:none;opacity:1}
-    .bar{gap:10px;padding:0 14px}
+
+  @media (max-width:420px){
+    .who-chip .em{display:none}
+    .bar{gap:6px;padding:0 12px}
+    .pane-main{padding:14px 12px}
+    .pane-chat{padding:12px 12px}
+    .pane-nav{padding:12px}
+    .gate-card{padding:22px 18px 18px}
   }
 
   /* ── Installed as an app ─────────────────────────────────────
@@ -662,8 +674,17 @@
     .bar{
       height:calc(var(--bar-h) + env(safe-area-inset-top,0px));
       padding-top:env(safe-area-inset-top,0px);
-      padding-left:calc(20px + env(safe-area-inset-left,0px));
-      padding-right:calc(20px + env(safe-area-inset-right,0px));
+      /* Add the inset to whatever side padding the breakpoint already set,
+         rather than restating a width and silently overriding the phone
+         layout's narrower gutter. */
+      padding-left:calc(env(safe-area-inset-left,0px) + 14px);
+      padding-right:calc(env(safe-area-inset-right,0px) + 14px);
+    }
+    /* The sign-in card is the first thing seen in the installed app, and it
+       sat under the notch without this. */
+    .gate{
+      padding-top:calc(24px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
     }
     .shell{
       padding-left:env(safe-area-inset-left,0px);
