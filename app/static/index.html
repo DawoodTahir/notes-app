@@ -305,6 +305,17 @@
     color:var(--brand);background:var(--surface);border:1px solid var(--brand-line);
   }
   .refile:hover:not(:disabled){background:var(--brand-soft);border-color:var(--brand)}
+  .combine{
+    font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:100px;line-height:1.5;white-space:nowrap;
+    color:var(--ink-3);background:var(--surface);border:1px solid var(--line);
+    opacity:0;transition:opacity .16s ease,color .16s ease,border-color .16s ease;
+  }
+  .folder:hover .combine,.combine:disabled,.combine:focus-visible{opacity:1}
+  .combine:hover:not(:disabled){color:var(--brand);border-color:var(--brand-line);background:var(--brand-soft)}
+  .combine:disabled{color:var(--brand);border-color:var(--brand-line)}
+  /* no hover on touch, so never hide it there */
+  @media (hover:none){.combine{opacity:1}}
   .fcount{font-size:10px;color:var(--ink-3);background:var(--surface-2);border:1px solid var(--line);border-radius:100px;padding:1px 6px}
   .deck{display:flex;flex-direction:column}
 
@@ -1373,6 +1384,30 @@ function fmtWhen(ts){
     : d.toLocaleDateString([], {month:"short", day:"numeric"});
 }
 
+/* Combine every note in one folder into a single sourced document.
+   Queued like notes and research: it reads the whole folder and makes
+   several model calls, so it cannot be a held-open request. */
+async function combineFolder(name, btn){
+  const original = btn.textContent;
+  btn.disabled = true;
+  try{
+    const out = await runJob("/api/digest", {category: name},
+                             step => { btn.textContent = step; });
+    await loadBucket();
+    if(out.saved && out.saved.id) await openSaved(out.saved.id);
+    const missed = (out.uncited || []).length;
+    setStatus(
+      `Combined ${out.note_count} notes on ${name}.`
+      + (missed ? ` ${missed} contributed nothing quotable.` : ""),
+      {}
+    );
+  }catch(e){
+    setStatus(e.message || "Could not combine that folder.", {err:true});
+  }finally{
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
 async function loadBucket(){
   try{
     const r = await fetch("/api/saved");
@@ -1404,8 +1439,16 @@ async function loadBucket(){
     folders.forEach((notes, name) => {
       const head = document.createElement("div");
       head.className = "folder";
-      head.innerHTML = `<span class="fname"></span><span class="fcount">${notes.length}</span>`;
+      // Two notes is the floor: one note has nothing to be combined with,
+      // and a folder of digests would only ever summarise itself.
+      const sources = notes.filter(n => n.note_kind !== "digest").length;
+      head.innerHTML = `<span class="fname"></span>`
+        + `<span class="nav-right">`
+        + (sources >= 2 ? `<button class="combine" type="button">combine</button>` : "")
+        + `<span class="fcount">${notes.length}</span></span>`;
       head.querySelector(".fname").textContent = name;
+      const btn = head.querySelector(".combine");
+      if(btn) btn.addEventListener("click", () => combineFolder(name, btn));
       list.appendChild(head);
 
       const deck = document.createElement("div");

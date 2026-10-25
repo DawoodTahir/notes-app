@@ -28,6 +28,7 @@ except Exception:
     pass
 
 from .research import find_sources
+from .synthesis import synthesise
 from .notes import (ChatRequest, NoteError, NoteRequest, answer_question,
                     classify_note, generate_notes)
 from . import auth, jobs, quota, store
@@ -283,8 +284,48 @@ def _research_job(payload: dict, progress) -> dict:
     return out.public()
 
 
+def _digest_job(payload: dict, progress) -> dict:
+    """Merge one folder's notes into a single organised document."""
+    user_id, category = payload["user_id"], payload["category"]
+
+    # A digest is itself saved as a note, so it would otherwise become input
+    # to the next digest of the same folder — the document would start
+    # summarising itself.
+    rows = [r for r in store.notes_in(user_id, category)
+            if (r.get("note_kind") or "") != "digest"]
+
+    out = synthesise(
+        rows, category,
+        provider=payload.get("provider") or "openai",
+        model=payload.get("model"),
+        progress=progress,
+    )
+
+    progress("saving")
+    # A folder has one current digest, not a pile of them. Without this,
+    # pressing combine twice leaves two documents that differ only by when
+    # they were written, and the folder fills with near-duplicates.
+    for old in store.notes_in(user_id, category):
+        if (old.get("note_kind") or "") == "digest":
+            store.delete_note(old["id"], user_id)
+
+    row = store.save_note(
+        user_id=user_id,
+        category=category,
+        category_reason=f"Combined from {out['note_count']} notes in this folder.",
+        subject=f"{category}: what the sources argue",
+        title=f"{category} — combined from {out['note_count']} notes",
+        url="", platform="", source="synthesis",
+        topic=category, note_kind="digest",
+        notes=out["document"], transcript="",
+    )
+    out["saved"] = row.summary()
+    return out
+
+
 jobs.register("notes", _notes_job)
 jobs.register("research", _research_job)
+jobs.register("digest", _digest_job)
 
 
 @app.get("/api/jobs/{job_id}")
@@ -440,6 +481,45 @@ def saved_create(body: SaveIn, user: auth.User = Depends(current_user)):
 class RefileIn(BaseModel):
     category: str
     reason: str = ""
+
+
+class DigestIn(BaseModel):
+    category: str
+    provider: str | None = None
+    model: str | None = None
+
+
+@app.post("/api/digest")
+def digest_endpoint(body: DigestIn, user: auth.User = Depends(current_user)):
+    """
+    Combine a folder into one document.
+
+    Queued: this reads every note in the folder and makes several model
+    calls, which is far too long to hold a request open.
+    """
+    try:
+        quota.consume(user.id, "digest")
+    except quota.QuotaExceeded as e:
+        return JSONResponse(status_code=429, content={"error": str(e)})
+
+    category = (body.category or "").strip()
+    if not category:
+        return JSONResponse(status_code=422, content={"error": "Which folder?"})
+
+    real = [r for r in store.notes_in(user.id, category)
+            if (r.get("note_kind") or "") != "digest"]
+    if len(real) < 2:
+        return JSONResponse(
+            status_code=422,
+            content={"error": "That folder needs at least two notes before "
+                              "there is anything to combine."},
+        )
+
+    job_id = jobs.submit("digest", {
+        "user_id": user.id, "category": category,
+        "provider": body.provider, "model": body.model,
+    }, user_id=user.id)
+    return JSONResponse(status_code=202, content={"job": job_id})
 
 
 @app.get("/api/categories")

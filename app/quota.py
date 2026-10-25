@@ -25,6 +25,7 @@ _DEFAULTS = {
     "research": 40,
     "transcript": 60,
     "refile": 10,
+    "digest": 15,
 }
 
 
