@@ -678,6 +678,24 @@
     .gate-card{padding:22px 18px 18px}
   }
 
+  /* Loading skeleton: bars where the text will be, so the wait reads as
+     progress on this document rather than as a blank pane. */
+  .skeleton{pointer-events:none}
+  .sk{
+    height:11px;border-radius:5px;margin:0 0 11px;
+    background:linear-gradient(90deg,
+      color-mix(in srgb,var(--ink-3) 13%,transparent) 25%,
+      color-mix(in srgb,var(--ink-3) 22%,transparent) 37%,
+      color-mix(in srgb,var(--ink-3) 13%,transparent) 50%);
+    background-size:300% 100%;
+    animation:sk 1.4s ease-in-out infinite;
+  }
+  .sk-h{height:17px;width:52%;margin-bottom:16px}
+  .sk-h2{margin-top:24px;width:38%}
+  .sk-s{width:72%}
+  @keyframes sk{0%{background-position:100% 0}100%{background-position:0 0}}
+  @media (prefers-reduced-motion:reduce){.sk{animation:none}}
+
   /* ── Installed as an app ─────────────────────────────────────
      Standalone has no browser chrome, so the page owns the notch and the
      home indicator. In landscape the insets are on the sides. */
@@ -1120,6 +1138,34 @@ async function preview(){
   }catch(e){ setStatus("Network error: "+e.message, {err:true}); }
 }
 
+/* Clear the previous document and show that a new one is coming.
+
+   Without this the old notes stayed on screen for the whole of the next
+   run — title, DONE badge, enabled Save and Copy, transcript and chat all
+   belonging to a video that is no longer the one in the box. Worse than
+   empty: it looks finished, so there is nothing to tell you the buttons
+   now act on stale content. */
+function beginDocument(){
+  lastNotesMd = ""; lastTitle = "notes";
+  clearExample();                                  // drop the idle flashcards
+  $("notes").className = "notes skeleton";
+  $("notes").innerHTML =
+    '<div class="sk sk-h"></div>'
+    + '<div class="sk"></div><div class="sk"></div><div class="sk sk-s"></div>'
+    + '<div class="sk sk-h sk-h2"></div>'
+    + '<div class="sk"></div><div class="sk sk-s"></div><div class="sk"></div>';
+  $("outTitle").textContent = "Working…";
+  $("btnSave").disabled = $("btnCopy").disabled = $("btnDownload").disabled = true;
+  $("btnSave").textContent = "Save";
+  $("txDetails").style.display = "none";
+  $("txDetails").open = false;
+  $("txText").textContent = "";
+  $("chatPanel").classList.remove("on");
+  $("chatLog").innerHTML = ""; $("chatSuggest").innerHTML = "";
+  chatSession = null; chatHistory = [];
+  $("resultScroll").scrollTop = 0;
+}
+
 async function makeNotes(ev){
   ev.preventDefault();
   const raw = $("url").value.trim();
@@ -1127,6 +1173,7 @@ async function makeNotes(ev){
   if(!looksLikeLink(raw)){ return runSearch(raw); }
 
   $("btnNotes").disabled = $("btnPreview").disabled = true;
+  beginDocument();
   setStatus("Starting…", {busy:true});
   try{
     const d = await runJob("/api/notes", payload(),
@@ -1141,7 +1188,12 @@ async function makeNotes(ev){
     $("btnSave").disabled = false; $("btnSave").textContent = "Save";
     openChat(d.session);
     setStatus("Notes generated. Ask a follow-up below.");
-  }catch(e){ setStatus(e.message, {err:true}); }
+  }catch(e){
+    $("notes").className = "notes";
+    $("notes").innerHTML = "";
+    $("outTitle").textContent = "Notes";
+    setStatus(e.message, {err:true});
+  }
   finally{ $("btnNotes").disabled = $("btnPreview").disabled = false; }
 }
 
