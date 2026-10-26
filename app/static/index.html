@@ -678,6 +678,42 @@
     .gate-card{padding:22px 18px 18px}
   }
 
+  /* Curation: keep or drop each point before it is filed. */
+  .notes li{position:relative}
+  .drop{
+    position:absolute;top:1px;right:-4px;
+    width:19px;height:19px;padding:0;border-radius:50%;line-height:1;
+    font:600 13px/1 var(--mono);
+    color:var(--ink-3);background:var(--surface);
+    border:1px solid var(--line);cursor:pointer;
+    opacity:0;transition:opacity .14s ease,color .14s ease,border-color .14s ease;
+  }
+  .notes li:hover > .drop,.drop:focus-visible{opacity:1}
+  .drop:hover{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent)}
+  li.dropped > .drop{opacity:1;color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+  li.dropped{opacity:.4}
+  /* Strike only this point's own text, not any nested list beneath it. */
+  li.dropped::marker{color:var(--ink-3)}
+  li.dropped > *:not(ul):not(ol):not(.drop),
+  li.dropped{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--err) 60%,transparent)}
+  li.dropped ul,li.dropped ol{text-decoration:none}
+  @media (hover:none){.drop{opacity:1}}
+
+  .drop-tally{
+    display:flex;align-items:center;gap:10px;
+    margin:0 22px 8px;padding:7px 12px;border-radius:9px;
+    font-size:12px;color:var(--ink-2);
+    background:color-mix(in srgb,var(--warn) 7%,var(--surface));
+    border:1px solid color-mix(in srgb,var(--warn) 25%,transparent);
+  }
+  .drop-tally .dt-n{flex:1;font-family:var(--mono);font-size:11px}
+  .drop-tally button{
+    font:inherit;font-size:11px;padding:3px 9px;border-radius:7px;cursor:pointer;
+    color:var(--ink);background:var(--surface);border:1px solid var(--line);
+  }
+  .drop-tally button:hover{border-color:var(--brand-line);color:var(--brand)}
+  @media (max-width:900px){.drop-tally{margin:0 16px 8px}}
+
   /* Qur'anic verse: Arabic beside the translation already in the note.
      Arabic needs its own type — at the body size a naskh face is unreadable,
      and without lang/dir the browser reorders the punctuation. */
@@ -924,6 +960,11 @@
       </div>
     </div>
 
+    <div class="drop-tally" id="dropTally" hidden>
+      <span class="dt-n"></span>
+      <button type="button" id="btnRestoreAll">put them back</button>
+    </div>
+
     <div class="result-scroll" id="resultScroll">
       <div class="idle" id="idle" aria-label="How Gist works">
         <div class="fc-stack" id="fcStack">
@@ -971,6 +1012,139 @@
 <script>
 const $ = id => document.getElementById(id);
 let lastNotesMd = "", lastTitle = "notes";
+
+/* Points the reader has dropped, as indices into lastNotesMd's lines.
+
+   Kept against the source markdown rather than the rendered DOM: what gets
+   saved has to be markdown, and rebuilding it back out of HTML would lose
+   whatever the renderer normalised on the way in. */
+let droppedLines = new Set();
+
+// Ordered items render as <li> exactly as bullets do, so they have to
+// count here too — otherwise a numbered list (the "Step by step" style
+// produces one) makes the counts diverge and curation switches itself off.
+const BULLET = /^(\s*)(?:[-*+]|\d+[.)])\s+/;
+
+/** Indentation of a markdown line, or -1 if it is not a bullet. */
+function bulletIndent(line){
+  const m = line.match(BULLET);
+  return m ? m[1].length : -1;
+}
+
+/** A bullet's own line plus any nested bullets and continuations beneath it. */
+function blockFor(lines, i){
+  const own = bulletIndent(lines[i]);
+  const out = [i];
+  for(let j = i + 1; j < lines.length; j++){
+    const line = lines[j];
+    if(!line.trim()){                      // blank line: only part of the block
+      let k = j;                           // if indented content follows it
+      while(k + 1 < lines.length && !lines[k + 1].trim()) k++;
+      const next = lines[k + 1];
+      if(next === undefined) break;
+      const ind = bulletIndent(next) >= 0 ? bulletIndent(next)
+                                          : next.match(/^\s*/)[0].length;
+      if(ind > own){ out.push(j); continue; }
+      break;
+    }
+    const ind = bulletIndent(line) >= 0 ? bulletIndent(line)
+                                        : line.match(/^\s*/)[0].length;
+    if(ind > own) out.push(j); else break;
+  }
+  return out;
+}
+
+/** The notes as they would be saved: everything the reader kept. */
+function curatedNotes(){
+  if(!droppedLines.size) return lastNotesMd;
+  return lastNotesMd.split("\n")
+    .filter((_, i) => !droppedLines.has(i))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/* Pair each rendered <li> with the bullet line it came from.
+
+   The renderer emits list items in the same order the bullets appear in the
+   source, nesting included, so walking both in order is enough — and it
+   survives the renderer rewriting the text itself, which matching on
+   content would not. */
+function attachCuration(){
+  const lines = lastNotesMd.split("\n");
+  const bulletIdx = [];
+  lines.forEach((l, i) => { if(bulletIndent(l) >= 0) bulletIdx.push(i); });
+
+  const items = $("notes").querySelectorAll("li");
+
+  // The pairing is positional, so it is only safe while both sides agree on
+  // how many items there are. If they ever diverge — a renderer change, a
+  // list the parser reads differently — every button after the divergence
+  // would silently remove the wrong line. Offer no buttons rather than
+  // quietly delete the wrong point.
+  if(items.length !== bulletIdx.length){
+    $("notes").querySelectorAll(".drop").forEach(b => b.remove());
+    droppedLines = new Set();
+    updateDropTally();
+    return;
+  }
+
+  items.forEach((el, n) => {
+    const line = bulletIdx[n];
+    el.dataset.line = line;
+
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "drop";
+    b.title = "Leave this out of the saved note";
+    b.setAttribute("aria-label", "Leave this point out");
+    b.textContent = "–";
+    b.addEventListener("click", ev => {
+      ev.stopPropagation();
+      toggleDropped(el, line, lines);
+    });
+    el.appendChild(b);
+  });
+  updateDropTally();
+}
+
+function toggleDropped(el, line, lines){
+  const block = blockFor(lines, line);
+  const dropping = !droppedLines.has(line);
+  block.forEach(i => dropping ? droppedLines.add(i) : droppedLines.delete(i));
+
+  // A nested point cannot survive its parent being removed.
+  $("notes").querySelectorAll("li[data-line]").forEach(li => {
+    const l = Number(li.dataset.line);
+    const off = droppedLines.has(l);
+    li.classList.toggle("dropped", off);
+    const btn = li.querySelector(":scope > .drop");
+    if(btn){
+      btn.textContent = off ? "+" : "–";
+      btn.title = off ? "Put this back in the saved note"
+                      : "Leave this out of the saved note";
+    }
+  });
+  updateDropTally();
+}
+
+function updateDropTally(){
+  const n = $("notes").querySelectorAll("li.dropped").length;
+  const tally = $("dropTally");
+  tally.hidden = n === 0;
+  tally.querySelector(".dt-n").textContent =
+    n + " point" + (n === 1 ? "" : "s") + " left out";
+}
+
+function restoreAll(){
+  droppedLines.clear();
+  $("notes").querySelectorAll("li[data-line]").forEach(li => {
+    li.classList.remove("dropped");
+    const b = li.querySelector(":scope > .drop");
+    if(b){ b.textContent = "–"; b.title = "Leave this out of the saved note"; }
+  });
+  updateDropTally();
+}
 
 /* ── Theme: explicit choice stamps data-theme, else the OS decides ── */
 (function(){
@@ -1209,6 +1383,7 @@ async function preview(){
    now act on stale content. */
 function beginDocument(){
   lastNotesMd = ""; lastTitle = "notes";
+  droppedLines = new Set();
   clearExample();                                  // drop the idle flashcards
   $("notes").className = "notes skeleton";
   $("notes").innerHTML =
@@ -1245,6 +1420,7 @@ async function makeNotes(ev){
     $("notes").className = "notes";
     $("notes").innerHTML = marked.parse(d.notes);
     attachResearch();
+    attachCuration();
     $("outTitle").innerHTML = (d.title || "Notes") + " <span class='badge'>done</span>";
     $("btnCopy").disabled = $("btnDownload").disabled = false;
     $("btnSave").disabled = false; $("btnSave").textContent = "Save";
@@ -1340,7 +1516,7 @@ async function sendChat(ev){
         question,
         history: chatHistory.slice(-6),
         // Fallbacks if the server restarted and lost the session.
-        notes: lastNotesMd,
+        notes: curatedNotes(),
         title: lastTitle,
       }),
     });
@@ -1641,6 +1817,7 @@ async function openSaved(id){
     $("notes").className = "notes";
     $("notes").innerHTML = marked.parse(d.notes);
     attachResearch();
+    attachCuration();
     $("outTitle").innerHTML = (d.subject || "Notes") + " <span class='badge'>saved</span>";
     $("btnCopy").disabled = $("btnDownload").disabled = false;
     $("btnSave").disabled = true;          // already in the bucket
@@ -1882,6 +2059,8 @@ $("btnNew").addEventListener("click", () => {
 });
 
 /* The library is a drawer on a phone, a permanent pane on a desktop. */
+$("btnRestoreAll").addEventListener("click", restoreAll);
+
 $("btnNav").addEventListener("click", () => $("paneNav").classList.toggle("open"));
 
 /* Read every unfiled note and put it where it belongs. */
@@ -2013,12 +2192,12 @@ $("btnPreview").addEventListener("click", preview);
 $("form").addEventListener("submit", makeNotes);
 
 $("btnCopy").addEventListener("click", async ()=>{
-  await navigator.clipboard.writeText(lastNotesMd);
+  await navigator.clipboard.writeText(curatedNotes());
   $("btnCopy").textContent = "Copied";
   setTimeout(()=>$("btnCopy").textContent="Copy", 1200);
 });
 $("btnDownload").addEventListener("click", ()=>{
-  const blob = new Blob([lastNotesMd],{type:"text/markdown"});
+  const blob = new Blob([curatedNotes()],{type:"text/markdown"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = (lastTitle||"notes").replace(/[^\w\- ]+/g,"").trim().slice(0,60) + ".md";
