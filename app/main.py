@@ -30,7 +30,7 @@ except Exception:
 from .research import find_sources
 from .synthesis import synthesise
 from . import orchestrator
-from .notes import (ChatRequest, NoteError, NoteRequest, answer_question,
+from .notes import (revise_notes, ChatRequest, NoteError, NoteRequest, answer_question,
                     classify_note, generate_notes)
 from . import auth, jobs, quota, quran, store
 from .transcript import TranscriptError, get_transcript, search_videos, speech_enabled
@@ -379,6 +379,35 @@ def _orchestrate_job(payload: dict, progress) -> dict:
     )
 
 
+def _revise_job(payload: dict, progress) -> dict:
+    """Rewrite a set of notes to follow one instruction."""
+    ctx = store.get_context(payload.get("session") or "") or {}
+    notes = payload.get("notes") or ctx.get("notes") or ""
+    progress("reading the transcript", 20)
+    revised = revise_notes(
+        notes, payload["instruction"],
+        transcript=ctx.get("transcript", ""),
+        title=payload.get("title") or ctx.get("title", ""),
+        provider=payload.get("provider"), model=payload.get("model"),
+    )
+    progress("attaching verses", 88)
+    try:
+        revised, _ = quran.annotate(revised)
+    except Exception:
+        pass
+
+    # The session now holds the revised text, so a save, a further question
+    # or another revision all work from what is on screen rather than from
+    # the version this one replaced.
+    sid = payload.get("session") or ""
+    if sid and ctx:
+        ctx["notes"] = revised
+        _SESSIONS[sid] = ctx
+        store.put_context(sid, ctx)
+    return {"notes": revised, "session": sid}
+
+
+jobs.register("revise", _revise_job)
 jobs.register("orchestrate", _orchestrate_job)
 jobs.register("notes", _notes_job)
 jobs.register("research", _research_job)
@@ -552,6 +581,34 @@ class OrchestrateIn(BaseModel):
     max_videos: int | None = None
     provider: str | None = None
     model: str | None = None
+
+
+class ReviseIn(BaseModel):
+    instruction: str
+    session: str | None = None
+    notes: str | None = None
+    title: str | None = None
+    provider: str | None = None
+    model: str | None = None
+
+
+@app.post("/api/revise")
+def revise_endpoint(body: ReviseIn, user: auth.User = Depends(current_user)):
+    """Change the notes to follow an instruction, grounded in the transcript."""
+    try:
+        quota.consume(user.id, "notes")
+    except quota.QuotaExceeded as e:
+        return JSONResponse(status_code=429, content={"error": str(e)})
+
+    if not (body.instruction or "").strip():
+        return JSONResponse(status_code=422, content={"error": "Say what you want changed."})
+
+    job_id = jobs.submit("revise", {
+        "instruction": body.instruction, "session": body.session,
+        "notes": body.notes, "title": body.title,
+        "provider": body.provider, "model": body.model,
+    }, user_id=user.id)
+    return JSONResponse(status_code=202, content={"job": job_id})
 
 
 @app.post("/api/orchestrate")

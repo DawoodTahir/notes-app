@@ -674,6 +674,17 @@
     .gate-card{padding:22px 18px 18px}
   }
 
+  #chatApply{
+    font-size:12.5px;padding:0 12px;color:var(--ink-2);
+    background:var(--surface);border:1px solid var(--line);
+  }
+  #chatApply:hover:not(:disabled){color:var(--brand);border-color:var(--brand-line);background:var(--brand-soft)}
+  @media (max-width:420px){
+    .chat-form{flex-wrap:wrap}
+    .chat-form textarea{flex:1 0 100%}
+    #chatApply,#chatSend{flex:1}
+  }
+
   /* Video posters. 16:9 is reserved before the image loads so a card does
      not jump height when it arrives. */
   .cthumb{
@@ -1014,7 +1025,8 @@
     <div class="suggest" id="chatSuggest"></div>
     <div class="chat-log" id="chatLog"></div>
     <form class="chat-form" id="chatForm">
-      <textarea id="chatInput" rows="1" placeholder="Ask about these notes…"></textarea>
+      <textarea id="chatInput" rows="1" placeholder="Ask a question, or say what to keep…"></textarea>
+      <button type="button" id="chatApply" title="Rewrite the notes to follow this">Add to notes</button>
       <button type="submit" class="primary" id="chatSend">Ask</button>
     </form>
   </aside>
@@ -1478,6 +1490,61 @@ function openChat(session){
     box.appendChild(b);
   });
 }
+
+/* Turn an instruction into a revision of the notes themselves.
+
+   Asking a question and changing the document are different acts, so they
+   get different buttons rather than one input guessing which was meant. The
+   revision is grounded in the transcript, not just the notes, because the
+   usual request is to put back a nuance the condensing dropped — and that
+   detail only survives upstream. */
+async function applyToNotes(){
+  const instruction = $("chatInput").value.trim();
+  if(!instruction || chatBusy) return;
+  if(!lastNotesMd){ setStatus("Generate some notes first.", {err:true}); return; }
+
+  chatBusy = true;
+  $("chatInput").value = "";
+  $("chatApply").disabled = $("chatSend").disabled = true;
+  addMsg("user", escapeHtml("✎ " + instruction), "user");
+  const thinking = addMsg("bot", '<span class="spinner"></span> revising the notes…', "bot");
+
+  try{
+    const r = await runJob("/api/revise", {
+      session: chatSession, instruction,
+      notes: lastNotesMd, title: lastTitle,
+    }, step => { thinking.querySelector(".bubble").innerHTML =
+                   '<span class="spinner"></span> ' + escapeHtml(step) + "…"; });
+
+    lastNotesMd = r.notes;
+    // The text has moved, so every line index a dropped point referred to is
+    // now meaningless. Clearing is the honest thing: silently re-applying
+    // them against shifted lines would delete the wrong material.
+    const hadDropped = droppedLines.size;
+    droppedLines = new Set();
+
+    $("notes").className = "notes";
+    $("notes").innerHTML = marked.parse(r.notes);
+    attachResearch();
+    attachCuration();
+    $("btnSave").disabled = false; $("btnSave").textContent = "Save";
+
+    const refused = /^> Not in the video:/m.test(r.notes);
+    thinking.querySelector(".bubble").innerHTML = escapeHtml(
+      refused ? "The video does not cover that, so the notes are unchanged — see the line at the end."
+              : "Notes updated." + (hadDropped ? " Your dropped points were restored, because the text moved." : ""));
+  }catch(e){
+    thinking.className = "msg bot err";
+    thinking.querySelector(".bubble").textContent =
+      e.message || "Could not revise the notes.";
+  }finally{
+    chatBusy = false;
+    $("chatApply").disabled = $("chatSend").disabled = false;
+    $("chatInput").focus();
+  }
+}
+
+$("chatApply").addEventListener("click", applyToNotes);
 
 function addMsg(role, html, kind){
   const wrap = document.createElement("div");

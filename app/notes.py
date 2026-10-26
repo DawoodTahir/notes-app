@@ -364,6 +364,72 @@ def generate_notes(req: NoteRequest,
 # Follow-up chat about generated notes
 # ─────────────────────────────────────────────────────────────
 
+REVISE_SYSTEM = """\
+You are revising a set of notes on a video, following an instruction from
+the person who will keep them.
+
+You are given the current notes, the transcript they were made from, and the
+instruction.
+
+Rules:
+
+- Return the complete revised notes. Not a diff, not a summary of what you
+  changed, not a commentary — the whole document, ready to replace the old
+  one.
+- Change only what the instruction asks for. Everything else keeps its
+  wording, its order and its structure.
+- When asked to add or expand something, take it from the transcript. The
+  notes were condensed from it and detail was dropped on the way; that
+  detail is what you are recovering.
+- Never invent. If the transcript does not support what was asked for, leave
+  the notes as they are and add one line at the very end:
+  `> Not in the video: <what was asked for>`
+- Keep the existing Markdown conventions: the same heading levels, the same
+  bullet style, bold where it was used.
+- Keep any `<div class="ayah">` blocks exactly as they are, including the
+  Arabic inside them.
+
+Output Markdown only."""
+
+
+def revise_notes(notes: str, instruction: str, transcript: str = "",
+                 title: str = "", provider: Optional[str] = None,
+                 model: Optional[str] = None) -> str:
+    """
+    Rewrite notes to follow one instruction.
+
+    The transcript goes along because the usual request is to put back a
+    nuance the condensing dropped — "keep what he said about the exceptions"
+    — and that detail only exists upstream of the notes.
+    """
+    instruction = (instruction or "").strip()
+    if not instruction:
+        raise NoteError("Say what you want changed.")
+    if not (notes or "").strip():
+        raise NoteError("There are no notes to revise.")
+
+    provider = (provider or os.environ.get("NOTE_PROVIDER") or "anthropic").lower()
+
+    budget = max(2_000, SINGLE_PASS_CHAR_LIMIT - len(notes) - _PROMPT_OVERHEAD_CHARS)
+    excerpt = (transcript or "")[:budget]
+
+    user = (f"Instruction: {instruction}\n\n"
+            f"Current notes for \"{title or 'this video'}\":\n\n{notes}\n\n"
+            + (f"Transcript:\n\n{excerpt}" if excerpt else
+               "No transcript is available; work from the notes alone."))
+
+    out = _dispatch(provider, REVISE_SYSTEM, user, model, MAX_OUTPUT_TOKENS)
+    out = (out or "").strip()
+    if not out:
+        raise NoteError("The model returned nothing.")
+    # A model that explains itself instead of producing the document is a
+    # failure that would otherwise overwrite good notes with chatter.
+    if len(out) < len(notes) * 0.4 and "Not in the video" not in out:
+        raise NoteError("The revision came back too short to be the full notes. "
+                        "Nothing was changed — try wording the instruction differently.")
+    return out
+
+
 CHAT_SYSTEM = """\
 You are helping someone understand a set of notes you produced from a video.
 
