@@ -678,6 +678,42 @@
     .gate-card{padding:22px 18px 18px}
   }
 
+  /* Qur'anic verse: Arabic beside the translation already in the note.
+     Arabic needs its own type — at the body size a naskh face is unreadable,
+     and without lang/dir the browser reorders the punctuation. */
+  .ayah{
+    margin:.95em 0;padding:13px 16px;border-radius:10px;
+    background:color-mix(in srgb,var(--ok) 6%,var(--surface));
+    border:1px solid color-mix(in srgb,var(--ok) 22%,transparent);
+    border-right:3px solid color-mix(in srgb,var(--ok) 55%,transparent);
+  }
+  .ayah-ref{
+    font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    color:color-mix(in srgb,var(--ok) 75%,var(--ink-3));margin-bottom:9px;
+  }
+  .ayah-ar{
+    margin:0;direction:rtl;text-align:right;
+    font-family:"SF Arabic","Geeza Pro","Scheherazade New","Amiri","Noto Naskh Arabic",serif;
+    font-size:21px;line-height:2.05;color:var(--ink);
+    font-feature-settings:"liga" 1,"calt" 1;
+  }
+  @media (max-width:420px){.ayah{padding:11px 12px}.ayah-ar{font-size:19px;line-height:1.95}}
+
+  /* Job progress */
+  .prog-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .prog-step{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prog-pct{font-family:var(--mono);font-size:11px;color:var(--brand);font-variant-numeric:tabular-nums}
+  .prog-track{height:3px;border-radius:100px;background:var(--surface-2);overflow:hidden}
+  .prog-fill{
+    height:100%;width:0;border-radius:100px;
+    background:linear-gradient(90deg,var(--mark-a),var(--brand-2));
+    transition:width .45s cubic-bezier(.3,.8,.3,1);
+  }
+  /* No measurable fraction: sweep instead of pretending to fill. */
+  .prog-track.indet .prog-fill{width:38%;animation:indet 1.25s ease-in-out infinite}
+  @keyframes indet{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}
+  @media (prefers-reduced-motion:reduce){.prog-track.indet .prog-fill{animation:none;width:100%;opacity:.45}}
+
   /* Loading skeleton: bars where the text will be, so the wait reads as
      progress on this document rather than as a blank pane. */
   .skeleton{pointer-events:none}
@@ -1109,6 +1145,32 @@ async function checkHealth(){
 }
 checkHealth();
 
+/* Progress for a running job.
+
+   A percentage is only shown when the server actually knows one. Note
+   generation can report a real fraction while it works through the chunks
+   of a long transcript; a short transcript is a single model call with
+   nothing to divide, and the bar stays indeterminate rather than inventing
+   a number that only pretends to measure something. */
+function setProgress(step, pct){
+  const known = typeof pct === "number" && pct >= 0;
+  const s = $("status");
+  s.className = "status";
+  s.innerHTML =
+    '<div class="prog-row">'
+    + (known ? "" : '<span class="spinner"></span>')
+    + '<span class="prog-step"></span>'
+    + (known ? '<span class="prog-pct"></span>' : "")
+    + '</div>'
+    + '<div class="prog-track' + (known ? "" : " indet") + '">'
+    + '<div class="prog-fill"></div></div>';
+  s.querySelector(".prog-step").textContent = (step || "working") + "…";
+  if(known){
+    s.querySelector(".prog-pct").textContent = Math.round(pct) + "%";
+    s.querySelector(".prog-fill").style.width = Math.max(2, pct) + "%";
+  }
+}
+
 function setStatus(msg, {busy=false, err=false}={}){
   const s = $("status");
   s.className = "status" + (err ? " err":"");
@@ -1177,7 +1239,7 @@ async function makeNotes(ev){
   setStatus("Starting…", {busy:true});
   try{
     const d = await runJob("/api/notes", payload(),
-                           step => setStatus(step + "…", {busy:true}));
+                           (step, pct) => setProgress(step, pct));
     lastNotesMd = d.notes; lastTitle = d.title;
     clearExample();
     $("notes").className = "notes";
@@ -1342,7 +1404,7 @@ async function runJob(path, body, onStep){
     const jr = await fetch(`/api/jobs/${started.job}`);
     const j = await jr.json();
     if(!jr.ok) throw new Error(j.error || "Lost track of the job.");
-    if(j.step && onStep) onStep(j.step);
+    if(onStep && (j.step || typeof j.percent === "number")) onStep(j.step, j.percent);
     if(j.status === "done") return j.result;
     if(j.status === "error") throw new Error(j.error || "The job failed.");
   }

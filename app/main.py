@@ -31,7 +31,7 @@ from .research import find_sources
 from .synthesis import synthesise
 from .notes import (ChatRequest, NoteError, NoteRequest, answer_question,
                     classify_note, generate_notes)
-from . import auth, jobs, quota, store
+from . import auth, jobs, quota, quran, store
 from .transcript import TranscriptError, get_transcript, search_videos, speech_enabled
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -78,6 +78,7 @@ store.init_db()
 auth.init_auth()
 jobs.init_jobs()
 quota.init_quota()
+quran.init_quran()
 
 if auth.auth_required():
     _boot = auth.bootstrap_invite()
@@ -248,17 +249,28 @@ def health(request: Request):
 
 def _notes_job(payload: dict, progress) -> dict:
     """Transcript + notes. The part that can take four minutes."""
-    progress("fetching the video")
+    progress("fetching the video", 5)
     tr = get_transcript(payload["url"], payload.get("languages"))
 
-    progress("writing notes")
+    progress("reading the transcript", 30)
     notes = generate_notes(NoteRequest(
         transcript=tr.text, title=tr.title,
         topic=payload.get("topic", ""), note_kind=payload.get("note_kind", ""),
         extra=payload.get("extra", ""),
         provider=payload.get("provider"), model=payload.get("model"),
-    ))
+    ), progress=progress)
 
+    # Any Qur'anic verse the notes cite gets its Arabic attached, from the
+    # published text rather than from the model. Best-effort: a note is still
+    # worth having if the lookup is unavailable.
+    try:
+        notes, verses = quran.annotate(notes)
+        if verses:
+            progress(f"attaching {verses} verse{'s' if verses > 1 else ''}", 93)
+    except Exception:
+        verses = 0
+
+    progress("filing the note", 95)
     session = _remember(
         tr.title, tr.text, notes,
         url=payload["url"], platform=getattr(tr, "platform", ""),

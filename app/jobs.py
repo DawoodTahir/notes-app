@@ -61,6 +61,12 @@ def init_jobs() -> None:
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_user ON jobs(user_id, created_at DESC)")
+        # How far along, 0-100. -1 means "working, but the length is not
+        # knowable yet" — a single-pass note has one model call and no
+        # fraction to report, and claiming one would be a lie.
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(jobs)")}
+        if "percent" not in cols:
+            conn.execute("ALTER TABLE jobs ADD COLUMN percent REAL NOT NULL DEFAULT -1")
         # A job left RUNNING is one the process died during; it will never
         # finish, so fail it honestly rather than leave a client polling.
         conn.execute(
@@ -108,6 +114,7 @@ def public(row: dict) -> dict:
         "kind": row["kind"],
         "status": row["status"],
         "step": row["step"],
+        "percent": row["percent"] if row["percent"] is not None else -1,
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
@@ -146,15 +153,25 @@ def _run(job_id: str) -> None:
     if not row or row["status"] != QUEUED:
         return
 
-    _set(job_id, status=RUNNING, step="starting")
+    _set(job_id, status=RUNNING, step="starting", percent=0)
 
-    def progress(step: str) -> None:
-        _set(job_id, step=step[:120])
+    def progress(step: str, percent: Optional[float] = None) -> None:
+        """
+        Report a step, and where possible how far through it we are.
+
+        Handlers that know the size of the work pass a percentage; the rest
+        leave it out and the client shows an indeterminate bar rather than a
+        number that does not mean anything.
+        """
+        fields: dict[str, Any] = {"step": step[:120]}
+        if percent is not None:
+            fields["percent"] = max(0.0, min(100.0, float(percent)))
+        _set(job_id, **fields)
 
     try:
         payload = json.loads(row["payload"] or "{}")
         result = _handlers[row["kind"]](payload, progress)
-        _set(job_id, status=DONE, step="", result=json.dumps(result))
+        _set(job_id, status=DONE, step="", percent=100, result=json.dumps(result))
     except Exception as e:
         # The message reaches a user, so keep it to the message — the traceback
         # goes to the log where it is useful.

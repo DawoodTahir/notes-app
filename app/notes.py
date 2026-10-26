@@ -12,10 +12,11 @@ Note generation from a transcript.
 
 from __future__ import annotations
 
+import math
 import os
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 
 # Roughly 4 chars per token. These default low because free tiers meter hard:
@@ -252,7 +253,8 @@ def _chunk(text: str, size: int) -> list[str]:
 _PROMPT_OVERHEAD_CHARS = 2_500
 
 
-def _condense_chunks(text: str, req: NoteRequest, provider: str) -> str:
+def _condense_chunks(text: str, req: NoteRequest, provider: str,
+                     report: Optional[Callable[[int, int], None]] = None) -> str:
     chunks = _chunk(text, max(2_000, CHUNK_CHAR_SIZE - _PROMPT_OVERHEAD_CHARS))
     system = (
         "You are condensing part of a long video transcript so it can later be "
@@ -262,6 +264,8 @@ def _condense_chunks(text: str, req: NoteRequest, provider: str) -> str:
     )
     partials = []
     for i, ch in enumerate(chunks, 1):
+        if report:
+            report(i, len(chunks))
         user = f"Transcript part {i} of {len(chunks)}:\n\n{ch}"
         partials.append(_dispatch(provider, system, user, req.model,
                                   max_tokens=MAX_OUTPUT_TOKENS))
@@ -272,23 +276,73 @@ def _condense_chunks(text: str, req: NoteRequest, provider: str) -> str:
 # Public entry point
 # ─────────────────────────────────────────────────────────────
 
-def generate_notes(req: NoteRequest) -> str:
+# Where note generation sits inside the job as a whole: the transcript is
+# already fetched by the time this runs, and saving follows it.
+_NOTES_FROM, _NOTES_TO = 30.0, 92.0
+
+
+def generate_notes(req: NoteRequest,
+                   progress: Optional[Callable[..., None]] = None) -> str:
+    """
+    Turn a transcript into notes.
+
+    `progress(step, percent)` is called as the work proceeds. Long transcripts
+    are condensed in chunks, and that loop is the only part whose length is
+    known in advance — so it is the only part that can report a real fraction.
+    A short transcript is a single model call with nothing to divide, and
+    reports no percentage rather than inventing one.
+    """
     provider = (req.provider or os.environ.get("NOTE_PROVIDER") or "anthropic").lower()
+
+    def say(step: str, pct: Optional[float] = None) -> None:
+        if progress:
+            progress(step, pct)
 
     # Condense repeatedly until the transcript fits one request. A single pass
     # is not always enough: a three-hour talk condenses to something still over
     # budget, and the reduce step would then fail the same way the map did.
     transcript = req.transcript
     budget = max(2_000, SINGLE_PASS_CHAR_LIMIT - _PROMPT_OVERHEAD_CHARS)
+
+    # Estimate the condense rounds up front so the bar is scaled to the whole
+    # job instead of restarting on each round. A round shrinks the text by
+    # roughly a third; four is the hard cap in the loop below.
+    rounds_expected, probe = 0, len(transcript)
+    while probe > budget and rounds_expected < 4:
+        rounds_expected += 1
+        probe //= 3
+
+    # Reserve the last quarter of the span for the final write-up.
+    condense_span = (_NOTES_TO - _NOTES_FROM) * 0.75 if rounds_expected else 0.0
+
+    done_rounds = 0
+    shown = _NOTES_FROM          # never let the bar go backwards
+
     for _ in range(4):
         if len(transcript) <= budget:
             break
-        condensed = _condense_chunks(transcript, req, provider)
+
+        def report(i: int, n: int, _r=done_rounds) -> None:
+            nonlocal shown
+            # The round count is only an estimate, and a transcript that needs
+            # four rounds when three were predicted must not pin the bar at
+            # the cap and sit there for the rest of the work. An exponential
+            # approach rises quickly, keeps rising when the estimate is
+            # overshot, and never actually reaches the end of the phase — so
+            # the bar is always moving and never claims to be finished early.
+            frac = (_r + i / max(1, n)) / max(1, rounds_expected)
+            eased = 1.0 - math.exp(-1.7 * frac)
+            shown = max(shown, _NOTES_FROM + condense_span * eased)
+            say(f"condensing part {i} of {n}", shown)
+
+        condensed = _condense_chunks(transcript, req, provider, report)
+        done_rounds += 1
         if len(condensed) >= len(transcript):
             transcript = condensed[:budget]     # not shrinking; cut losses
             break
         transcript = condensed
 
+    say("writing notes", max(shown, _NOTES_FROM + condense_span) if condense_span else None)
     system = _system_prompt(req.topic, req.note_kind, req.extra)
     user = _user_prompt(req.title, transcript)
     notes = _dispatch(provider, system, user, req.model, max_tokens=MAX_OUTPUT_TOKENS)
