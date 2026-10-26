@@ -45,11 +45,21 @@ services:
       - key: MAX_SOURCE_BYTES
         value: "157286400"          # 150 MB
       - key: NOTE_PROVIDER
-        value: openai               # Groq speaks the OpenAI protocol
+        value: openai               # Gemini speaks the OpenAI protocol too
       - key: OPENAI_BASE_URL
-        value: https://api.groq.com/openai/v1
+        value: https://generativelanguage.googleapis.com/v1beta/openai
+      - key: NOTE_CHAR_BUDGET
+        value: "200000"          # one pass per video; chunking costs ~10x
       - key: OPENAI_MODEL
-        value: openai/gpt-oss-120b
+        value: gemini-3.1-flash-lite   # cheapest Lite that this key can call
+      # Whisper has no Gemini equivalent, so speech-to-text stays on Groq,
+      # where it barely touches the token budget.
+      - key: SPEECH_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: SPEECH_MODEL
+        value: whisper-large-v3-turbo
+      - key: SPEECH_API_KEY
+        sync: false
 
       # Typed into the Render dashboard, never committed.
       - key: OPENAI_API_KEY

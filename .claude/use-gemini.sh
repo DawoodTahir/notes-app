@@ -67,16 +67,26 @@ def version_of(n):
     return float(m.group(1)) if m else 0.0
 
 def usable(n):
-    # Chat models only: the audio/image/embedding variants answer a different
-    # API, and "lite" trades away too much quality for long-form notes.
-    bad = ("audio", "image", "tts", "embedding", "vision", "live", "lite", "thinking")
+    # Chat models only — the audio/image/embedding variants answer a
+    # different API.
+    bad = ("audio", "image", "tts", "embedding", "vision", "live", "thinking")
     return "flash" in n and not any(b in n for b in bad)
 
 # Rank by version number rather than a hardcoded list — this script outlived
 # its first hardcoded "2.5/2.0/1.5" ladder within a day.
-candidates = sorted({n for n in names if usable(n)},
-                    key=lambda n: (version_of(n), "preview" not in n and "exp" not in n),
-                    reverse=True)
+# Lite first. The script cannot know prices — they are not derivable from a
+# model name and a table here would go stale — so it orders by family and
+# version and checks the model actually answers. Pin OPENAI_MODEL by hand if
+# a specific one is cheaper: at the time of writing 3.1-flash-lite
+# ($0.25/$1.50 per M) undercuts 3.5-flash-lite ($0.30/$2.50).
+# Flash-Lite costs a fraction of full Flash and writes
+# perfectly good notes — shorter, but accurate and well organised. Full
+# Flash is the fallback when no Lite model answers.
+candidates = sorted(
+    {n for n in names if usable(n)},
+    key=lambda n: ("lite" in n, version_of(n), "preview" not in n and "exp" not in n),
+    reverse=True,
+)
 if not candidates:
     print("no suitable flash model found. Catalogue sample:", ", ".join(sorted(names)[:25]))
     sys.exit(3)
@@ -126,6 +136,13 @@ print("backed up .env -> .env.backup")
 
 want = {
     "NOTE_PROVIDER": "openai",
+    # The 12,000-char budget exists only because Groq's per-minute ceiling
+    # forced long transcripts through a map-reduce: fifteen chunks, then
+    # four, then two, each re-reading the text and each spending a full
+    # output allowance. Gemini has room for a whole transcript in one call,
+    # and a single pass costs roughly a tenth as much — output tokens are
+    # several times the price of input, and chunking multiplies output.
+    "NOTE_CHAR_BUDGET": "200000",
     "OPENAI_BASE_URL": BASE,
     "OPENAI_API_KEY": gem,
     "OPENAI_MODEL": model,
