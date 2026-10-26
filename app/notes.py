@@ -26,8 +26,17 @@ from typing import Callable, Optional
 #   NOTE_CHAR_BUDGET  chars of transcript allowed in one request
 #   NOTE_MAX_TOKENS   ceiling on the reply
 def _env_int(name: str, default: int) -> int:
+    """
+    An integer from the environment, or the default.
+
+    No floor is applied here. There used to be a `max(1000, …)`, which was
+    presumably meant to stop a character budget being set uselessly low — but
+    it applies to whatever the helper is asked for, so every count that used
+    it silently became at least a thousand: "take notes on 3 videos" meant a
+    thousand. Budgets clamp themselves where they are used.
+    """
     try:
-        return max(1000, int(os.environ.get(name, "") or default))
+        return int(os.environ.get(name, "") or default)
     except ValueError:
         return default
 

@@ -29,6 +29,7 @@ except Exception:
 
 from .research import find_sources
 from .synthesis import synthesise
+from . import orchestrator
 from .notes import (ChatRequest, NoteError, NoteRequest, answer_question,
                     classify_note, generate_notes)
 from . import auth, jobs, quota, quran, store
@@ -335,6 +336,48 @@ def _digest_job(payload: dict, progress) -> dict:
     return out
 
 
+def _orchestrate_job(payload: dict, progress) -> dict:
+    """
+    A brief in, a set of saved notes out.
+
+    Each note is saved as it is finished rather than all at the end: the run
+    takes minutes and crosses several videos, and a failure on the fourth
+    should not throw away the three that already worked.
+    """
+    user_id = payload["user_id"]
+    known = {r.get("url", "") for r in store.list_all(user_id) if r.get("url")}
+
+    def save(record: dict) -> dict:
+        notes = record["notes"]
+        try:
+            notes, _ = quran.annotate(notes)
+            record["notes"] = notes
+        except Exception:
+            pass
+        category, reason, subject = classify_note(
+            record["title"], notes, existing=store.list_categories(user_id),
+        )
+        row = store.save_note(
+            user_id=user_id, category=category, category_reason=reason,
+            subject=subject, title=record["title"], url=record["url"],
+            platform=record.get("platform", ""), source=record.get("source", ""),
+            topic=payload.get("brief", ""), note_kind="",
+            notes=notes, transcript=record.get("transcript", ""),
+        )
+        return row.summary()
+
+    return orchestrator.run(
+        payload["brief"],
+        provider=payload.get("provider") or os.environ.get("NOTE_PROVIDER") or "openai",
+        model=payload.get("model"),
+        max_videos=int(payload.get("max_videos") or 0),
+        known_urls=known,
+        on_note=save,
+        progress=progress,
+    )
+
+
+jobs.register("orchestrate", _orchestrate_job)
 jobs.register("notes", _notes_job)
 jobs.register("research", _research_job)
 jobs.register("digest", _digest_job)
@@ -499,6 +542,36 @@ class DigestIn(BaseModel):
     category: str
     provider: str | None = None
     model: str | None = None
+
+
+class OrchestrateIn(BaseModel):
+    brief: str
+    max_videos: int | None = None
+    provider: str | None = None
+    model: str | None = None
+
+
+@app.post("/api/orchestrate")
+def orchestrate_endpoint(body: OrchestrateIn, user: auth.User = Depends(current_user)):
+    """Describe what you need; the run finds the videos and writes the notes."""
+    try:
+        quota.consume(user.id, "orchestrate")
+    except quota.QuotaExceeded as e:
+        return JSONResponse(status_code=429, content={"error": str(e)})
+
+    brief = (body.brief or "").strip()
+    if len(brief) < 8:
+        return JSONResponse(
+            status_code=422,
+            content={"error": "Say a bit more about what you want notes on."},
+        )
+
+    job_id = jobs.submit("orchestrate", {
+        "user_id": user.id, "brief": brief,
+        "max_videos": body.max_videos or 0,
+        "provider": body.provider, "model": body.model,
+    }, user_id=user.id)
+    return JSONResponse(status_code=202, content={"job": job_id})
 
 
 @app.post("/api/digest")

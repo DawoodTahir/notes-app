@@ -929,6 +929,7 @@
       <div class="compose-row">
         <input id="url" placeholder="Paste a link, or describe a topic…" required />
         <button type="button" id="btnPreview">Preview</button>
+        <button type="button" id="btnAuto" hidden>Do it for me</button>
         <button type="submit" class="primary" id="btnNotes">Generate notes</button>
       </div>
       <span class="mode-hint" id="modeHint"></span>
@@ -1618,12 +1619,100 @@ function refreshMode(){
   const empty = !v.trim();
   $("btnNotes").textContent = link || empty ? "Generate notes" : "Search videos";
   $("btnPreview").hidden = !link;
+  // Describing a need is a third thing you can do here, and only makes sense
+  // once there is enough prose to plan from.
+  $("btnAuto").hidden = link || v.trim().length < 12;
   $("modeHint").innerHTML = empty ? ""
     : link ? "detected a <b>link</b> — will generate notes"
-           : "looks like a <b>topic</b> — will search for videos";
+           : "a <b>topic</b> — search it, or let Gist <b>find and read</b> the videos for you";
 }
 $("url").addEventListener("input", refreshMode);
 refreshMode();
+
+/* Describe what you need and let the run do the rest: plan searches, judge
+   the results, read what it picks, and file the notes.
+
+   The report matters as much as the notes. Every stage here can be wrong in
+   a way the next cannot detect — a poor query returns plausible videos about
+   the wrong thing — so what it searched, chose and rejected is shown, and
+   the notes are saved for review rather than presented as finished. */
+async function runAuto(){
+  const brief = $("url").value.trim();
+  if(brief.length < 12){ setStatus("Say a bit more about what you want.", {err:true}); return; }
+
+  $("btnNotes").disabled = $("btnPreview").disabled = $("btnAuto").disabled = true;
+  beginDocument();
+  $("outTitle").textContent = "Researching…";
+  setProgress("starting", 0);
+  try{
+    const r = await runJob("/api/orchestrate", {brief}, (step, pct) => setProgress(step, pct));
+    renderAutoReport(r);
+    await loadBucket();
+    setStatus(r.message || "Done.");
+    $("url").value = ""; refreshMode();
+  }catch(e){
+    $("notes").className = "notes"; $("notes").innerHTML = "";
+    $("outTitle").textContent = "Notes";
+    setStatus(e.message || "That run failed.", {err:true});
+  }finally{
+    $("btnNotes").disabled = $("btnPreview").disabled = $("btnAuto").disabled = false;
+  }
+}
+
+function renderAutoReport(r){
+  const esc = escapeHtml;
+  const plan = r.plan || {};
+  const parts = [];
+
+  parts.push(`<h1>${esc(r.brief || "Research")}</h1>`);
+  if(r.message) parts.push(`<p class="auto-lede">${esc(r.message)}</p>`);
+
+  if((plan.queries || []).length){
+    parts.push('<h2>What it searched</h2><ul>');
+    plan.queries.forEach(q => parts.push(`<li>${esc(q)}</li>`));
+    parts.push('</ul>');
+    if(plan.looking_for) parts.push(`<p><strong>Looking for:</strong> ${esc(plan.looking_for)}</p>`);
+    if(plan.avoid) parts.push(`<p><strong>Avoiding:</strong> ${esc(plan.avoid)}</p>`);
+  }
+
+  if((r.notes || []).length){
+    parts.push(`<h2>Notes written <span class="auto-count">${r.notes.length}</span></h2>`);
+    r.notes.forEach(n => {
+      const saved = n.saved || {};
+      parts.push(
+        '<div class="auto-item">'
+        + `<a class="auto-t" href="${esc(n.url)}" target="_blank" rel="noopener">${esc(saved.label || n.title)}</a>`
+        + (n.why ? `<div class="auto-why">${esc(n.why)}</div>` : "")
+        + `<div class="auto-meta">${esc(saved.category || "Unfiled")} · ${(n.notes || "").length} chars</div>`
+        + '</div>');
+    });
+  }
+
+  if((r.skipped || []).length){
+    parts.push('<h2>Passed over</h2>');
+    r.skipped.forEach(c => parts.push(
+      `<div class="auto-item auto-skip"><div class="auto-t">${esc(c.title)}</div>`
+      + `<div class="auto-why">${esc(c.why)}</div></div>`));
+  }
+
+  if((r.failed || []).length){
+    parts.push('<h2>Could not be read</h2>');
+    r.failed.forEach(c => parts.push(
+      `<div class="auto-item auto-fail"><div class="auto-t">${esc(c.title)}</div>`
+      + `<div class="auto-why">${esc(c.why)}</div></div>`));
+  }
+
+  parts.push('<p class="auto-foot">Each note is saved in your library — open one to read it in full, question it, or drop points before keeping it.</p>');
+
+  clearExample();
+  $("notes").className = "notes auto";
+  $("notes").innerHTML = parts.join("");
+  $("outTitle").innerHTML = "Research <span class='badge'>done</span>";
+  $("btnCopy").disabled = $("btnDownload").disabled = true;
+  $("btnSave").disabled = true; $("btnSave").textContent = "Saved";
+}
+
+$("btnAuto").addEventListener("click", runAuto);
 
 async function runSearch(query){
   $("btnNotes").disabled = true;

@@ -26,6 +26,7 @@ _DEFAULTS = {
     "transcript": 60,
     "refile": 10,
     "digest": 15,
+    "orchestrate": 8,
 }
 
 
