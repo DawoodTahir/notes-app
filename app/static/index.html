@@ -678,6 +678,23 @@
     .gate-card{padding:22px 18px 18px}
   }
 
+  /* Video posters. 16:9 is reserved before the image loads so a card does
+     not jump height when it arrives. */
+  .cthumb{
+    margin:-11px -12px 10px;border-radius:8px 8px 0 0;overflow:hidden;
+    aspect-ratio:16/9;background:var(--surface-2);
+  }
+  .cthumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .card:hover .cthumb img,.card.active .cthumb img{transform:scale(1.03)}
+  .cthumb img{transition:transform .3s cubic-bezier(.2,.8,.3,1)}
+  @media (prefers-reduced-motion:reduce){.cthumb img{transition:none}}
+
+  .rthumb{
+    flex:0 0 auto;width:72px;aspect-ratio:16/9;border-radius:6px;overflow:hidden;
+    background:var(--surface-2);border:1px solid var(--line);
+  }
+  .rthumb img{width:100%;height:100%;object-fit:cover;display:block}
+
   /* Curation: keep or drop each point before it is filed. */
   .notes li{position:relative}
   .drop{
@@ -1731,8 +1748,15 @@ async function runSearch(query){
     d.results.forEach((v, i) => {
       const b = document.createElement("button");
       b.type = "button"; b.className = "result";
-      b.innerHTML = `<span class="idx">${String(i+1).padStart(2,"0")}</span>
-        <span><span class="rt"></span><span class="rm"></span></span>`;
+      b.innerHTML = (v.thumbnail
+          ? `<span class="rthumb"><img loading="lazy" decoding="async" alt=""></span>`
+          : `<span class="idx">${String(i+1).padStart(2,"0")}</span>`)
+        + `<span><span class="rt"></span><span class="rm"></span></span>`;
+      const rimg = b.querySelector(".rthumb img");
+      if(rimg){
+        rimg.src = v.thumbnail;
+        rimg.addEventListener("error", () => b.querySelector(".rthumb").remove());
+      }
       b.querySelector(".rt").textContent = v.title;
       b.querySelector(".rm").textContent =
         [v.uploader, fmtDuration(v.duration), fmtViews(v.views)].filter(Boolean).join(" · ");
@@ -1845,6 +1869,23 @@ function bucketCard(n){
   card.setAttribute("role", "button");
   card.dataset.id = n.id;
   if(n.platform) card.dataset.p = n.platform;
+
+  /* A poster frame makes a stacked deck scannable — you recognise the video
+     long before you read the line. Added only when there is a real URL for
+     it: a broken image is worse than none, so a failed load removes the
+     element rather than leaving the browser's torn-page icon in the deck. */
+  if(n.thumbnail){
+    const shot = document.createElement("div");
+    shot.className = "cthumb";
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.alt = "";
+    img.src = n.thumbnail;
+    img.addEventListener("error", () => shot.remove());
+    shot.appendChild(img);
+    card.appendChild(shot);
+  }
 
   const title = document.createElement("p"); title.className = "ct";
   title.textContent = n.label || n.title;          // the point in dispute

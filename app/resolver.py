@@ -66,6 +66,7 @@ class Resolved:
     title: str = ""
     uploader: str = ""
     duration: Optional[float] = None
+    thumbnail: str = ""      # a poster frame, where the API supplies one
     provider: str = ""
 
 

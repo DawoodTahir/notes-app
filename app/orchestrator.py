@@ -250,6 +250,7 @@ def run(
                 "platform": getattr(tr, "platform", ""),
                 "source": getattr(tr, "source", ""),
                 "notes": md, "transcript": tr.text,
+                "thumbnail": getattr(tr, "thumbnail", ""),
                 "why": why, "query": c.get("query", ""),
             }
             if on_note:

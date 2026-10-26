@@ -276,6 +276,7 @@ def _notes_job(payload: dict, progress) -> dict:
         tr.title, tr.text, notes,
         url=payload["url"], platform=getattr(tr, "platform", ""),
         source=getattr(tr, "source", ""), topic=payload.get("topic", ""),
+        thumbnail=getattr(tr, "thumbnail", ""),
         note_kind=payload.get("note_kind", ""),
     )
     return {
@@ -361,6 +362,7 @@ def _orchestrate_job(payload: dict, progress) -> dict:
             user_id=user_id, category=category, category_reason=reason,
             subject=subject, title=record["title"], url=record["url"],
             platform=record.get("platform", ""), source=record.get("source", ""),
+            thumbnail=record.get("thumbnail", ""),
             topic=payload.get("brief", ""), note_kind="",
             notes=notes, transcript=record.get("transcript", ""),
         )
@@ -529,6 +531,7 @@ def saved_create(body: SaveIn, user: auth.User = Depends(current_user)):
         note_kind=body.note_kind or ctx.get("note_kind", ""),
         notes=notes,
         transcript=ctx.get("transcript", ""),
+        thumbnail=ctx.get("thumbnail", ""),
     )
     return {"saved": row.summary()}
 

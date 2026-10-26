@@ -49,6 +49,7 @@ class Transcript:
     language: str
     segments: list[Segment] = field(default_factory=list)
     platform: str = "unknown"
+    thumbnail: str = ""
 
     @property
     def text(self) -> str:
@@ -99,6 +100,20 @@ def detect_platform(url_or_id: str) -> str:
             if host == suf or host.endswith("." + suf):
                 return label
     return host
+
+
+def thumbnail_for(video_id: str, platform: str) -> str:
+    """
+    A poster frame for a video, where one can be had without asking for it.
+
+    YouTube addresses thumbnails by id, so this costs nothing. Other
+    platforms do not, and their poster comes from whatever the resolver was
+    given — an empty string where there is none, rather than a guess that
+    404s in the page.
+    """
+    if (platform or "").lower() == "youtube" and re.fullmatch(r"[0-9A-Za-z_-]{11}", video_id or ""):
+        return f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
+    return ""
 
 
 def normalize_url(url_or_id: str) -> str:
@@ -706,6 +721,8 @@ def get_transcript(url_or_id: str, languages: Optional[list[str]] = None) -> Tra
         language=languages[0],
         segments=segments,
         platform=platform,
+        thumbnail=(getattr(resolved, "thumbnail", "") or "")
+                  or thumbnail_for(video_id, platform),
     )
     tr.source = source  # type: ignore[attr-defined]
     return tr

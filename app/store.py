@@ -47,6 +47,7 @@ class SavedNote:
     category: str = "Unfiled"
     category_reason: str = ""
     subject: str = ""            # what the material argues, not what it was titled
+    thumbnail: str = ""          # poster frame, where the platform offers one
 
     def summary(self) -> dict:
         """Row for the list view — omits the heavy text fields."""
@@ -186,29 +187,32 @@ def init_db() -> None:
             conn.execute("ALTER TABLE saved_notes ADD COLUMN category_reason TEXT NOT NULL DEFAULT ''")
         if "subject" not in cols:
             conn.execute("ALTER TABLE saved_notes ADD COLUMN subject TEXT NOT NULL DEFAULT ''")
+        if "thumbnail" not in cols:
+            conn.execute("ALTER TABLE saved_notes ADD COLUMN thumbnail TEXT NOT NULL DEFAULT ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_saved_cat ON saved_notes(user_id, category)")
 
 
 def save_note(*, user_id: str, title: str, url: str, platform: str, source: str,
               topic: str, note_kind: str, notes: str, transcript: str,
               category: str = "Unfiled", category_reason: str = "",
-              subject: str = "") -> SavedNote:
+              subject: str = "", thumbnail: str = "") -> SavedNote:
     row = SavedNote(
         id=uuid.uuid4().hex[:16], user_id=user_id,
         title=title or "Untitled", url=url or "", platform=platform or "",
         source=source or "", topic=topic or "", note_kind=note_kind or "",
         notes=notes or "", transcript=transcript or "", created_at=time.time(),
         category=category or "Unfiled", category_reason=category_reason or "",
-        subject=subject or "",
+        subject=subject or "", thumbnail=thumbnail or "",
     )
     with _connect() as conn:
         conn.execute(
             "INSERT INTO saved_notes (id,user_id,title,url,platform,source,topic,"
-            "note_kind,notes,transcript,created_at,category,category_reason,subject) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "note_kind,notes,transcript,created_at,category,category_reason,subject,"
+            "thumbnail) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (row.id, row.user_id, row.title, row.url, row.platform, row.source,
              row.topic, row.note_kind, row.notes, row.transcript, row.created_at,
-             row.category, row.category_reason, row.subject),
+             row.category, row.category_reason, row.subject, row.thumbnail),
         )
     return row
 
