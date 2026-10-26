@@ -256,10 +256,6 @@
   .theme-btn:hover{color:var(--ink)}
   .who-chip{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
   .who-chip .em{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .plan-tag{
-    font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;
-    background:var(--surface-2);border:1px solid var(--line);color:var(--ink-3);
-  }
 
   /* ── 4. Shell + panes ────────────────────────────────────────── */
   .shell{
@@ -907,9 +903,7 @@
   <div class="spacer"></div>
   <span class="who-chip" id="whoChip" hidden>
     <span class="em" id="whoEmail"></span>
-    <span class="plan-tag" id="whoPlan">free</span>
   </span>
-  <button class="theme-btn" id="btnInvite" type="button" hidden>Invite</button>
   <button class="theme-btn" id="btnLogout" type="button" hidden>Sign out</button>
   <button class="theme-btn" id="themeBtn" type="button">Theme</button>
 </div>
@@ -2030,12 +2024,10 @@ function applyUser(user, authRequired){
 
   $("whoChip").hidden   = !(signedIn && needsAuth);
   $("btnLogout").hidden = !(signedIn && needsAuth);
-  $("btnInvite").hidden = !(signedIn && needsAuth && user.is_admin);
+
 
   if(signedIn){
     $("whoEmail").textContent = user.email;
-    $("whoPlan").textContent  = user.plan;
-    $("whoPlan").className    = "plan-tag" + (user.plan === "pro" ? " pro" : "");
     loadBucket();
   }
 }
@@ -2105,16 +2097,6 @@ $("btnLogout").addEventListener("click", async () => {
     navigator.serviceWorker?.controller?.postMessage({type:"wipe"});
   }catch(e){}
   location.reload();
-});
-
-$("btnInvite").addEventListener("click", async () => {
-  const r = await fetch("/api/auth/invites", {method:"POST"});
-  const d = await r.json();
-  if(d.code){
-    try{ await navigator.clipboard.writeText(d.code); }catch(e){}
-    $("btnInvite").textContent = "Copied " + d.code;
-    setTimeout(() => $("btnInvite").textContent = "Invite", 4000);
-  }
 });
 
 setGateMode("login");
