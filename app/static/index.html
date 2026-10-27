@@ -264,9 +264,23 @@
   }
   .pane{min-width:0;min-height:0;display:flex;flex-direction:column;padding:16px}
   /* translucent, so the fixed wash tints each pane differently */
-  .pane-nav{background:color-mix(in srgb,var(--bg-nav) 82%,transparent);border-right:1px solid var(--seam);gap:10px;padding:14px 12px}
-  .pane-main{background:color-mix(in srgb,var(--bg-doc) 80%,transparent);padding:16px 22px 14px}
-  .pane-chat{background:color-mix(in srgb,var(--bg-chat) 78%,transparent);border-left:1px solid var(--seam);padding:14px 16px}
+  /* Three panes, three tones. They were within a few percent of each other
+     and read as one flat surface; the document is now clearly the lit one in
+     the middle, with the library and the side panel recessed on either side,
+     and a real seam between them. */
+  .pane-nav{
+    background:var(--bg-nav);border-right:1px solid var(--seam);
+    gap:10px;padding:14px 12px;
+    box-shadow:inset -8px 0 14px -14px rgba(23,20,60,.5);
+  }
+  .pane-main{
+    background:var(--surface);padding:16px 22px 14px;
+    box-shadow:0 0 22px -10px rgba(23,20,60,.13);z-index:1;
+  }
+  .pane-chat{
+    background:var(--bg-chat);border-left:1px solid var(--seam);padding:0;
+    box-shadow:inset 8px 0 14px -14px rgba(23,20,60,.5);
+  }
 
   /* section labels, one style everywhere */
   .nav-head,.tally,.fcount,.opt,.mode-hint,.rel,.idx,.rm,.cm{
@@ -542,12 +556,62 @@
   .find:hover{background:var(--brand-soft)}
 
   /* ── 4c. Conversation ────────────────────────────────────────── */
+  /* Side panel tabs */
+  .tabs{
+    flex:none;display:flex;gap:2px;padding:10px 12px 0;
+    border-bottom:1px solid var(--seam);
+  }
+  .tab{
+    position:relative;font:inherit;font-size:12.5px;cursor:pointer;
+    padding:7px 11px 9px;border:0;border-radius:7px 7px 0 0;
+    color:var(--ink-3);background:transparent;
+  }
+  .tab:hover{color:var(--ink-2)}
+  .tab.on{color:var(--ink);background:var(--surface)}
+  .tab.on::after{
+    content:"";position:absolute;left:9px;right:9px;bottom:-1px;height:2px;
+    border-radius:2px;background:var(--brand);
+  }
+  /* A quiet dot marks a tab that has something in it. */
+  .tab.has:not(.on)::before{
+    content:"";position:absolute;top:6px;right:5px;width:4px;height:4px;
+    border-radius:50%;background:var(--brand);opacity:.75;
+  }
+  .tabpane{flex:1 1 auto;min-height:0;display:none;flex-direction:column;padding:12px 14px 14px}
+  .tabpane.on{display:flex}
+  .tab-empty{color:var(--ink-3);font-size:12.5px;line-height:1.6;padding:18px 4px;text-align:center}
+
+  #paneScript .transcript{
+    flex:1 1 auto;min-height:0;overflow:auto;margin:0;
+    white-space:pre-wrap;font-family:var(--mono);font-size:11.5px;line-height:1.65;
+    color:var(--ink-2);
+  }
+  #paneSrc{overflow:auto}
+  .src-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:10px;margin-bottom:12px;
+  }
+  .src-card img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:7px;display:block;margin-bottom:8px}
+  .src-card a{font-size:13px;font-weight:500;line-height:1.4;color:var(--ink);text-decoration:none;display:block}
+  .src-card a:hover{color:var(--brand)}
+  .src-tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-top:6px}
+  .src-find{margin-bottom:14px}
+  .src-claim{
+    font-size:11.5px;line-height:1.5;color:var(--ink-2);margin-bottom:7px;
+    padding-left:8px;border-left:2px solid var(--brand-line);
+  }
+
   .chat-head{flex:none;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 10px}
   .chat-head h3{font-family:var(--display);font-weight:500;font-size:16px;margin:0;letter-spacing:-.01em}
   .chat-head .note{font-size:12px;color:var(--ink-3)}
   .chat-empty{flex:1 1 auto;display:grid;place-items:center;text-align:center;color:var(--ink-3);font-size:12.5px;line-height:1.6;padding:0 14px}
   .chat.on .chat-empty{display:none}
-  .chat:not(.on) .chat-log,.chat:not(.on) .suggest,.chat:not(.on) .chat-form{display:none}
+  /* The composer stays on screen even before there are notes. Hiding it
+     until a document existed meant the panel showed a heading and nothing
+     else, and there was no visible place to ask a follow-up at all. It is
+     disabled instead, which says the same thing without vanishing. */
+  .chat:not(.on) .chat-log,.chat:not(.on) .suggest{display:none}
+  .chat:not(.on) .chat-form{opacity:.5;pointer-events:none}
   .pane-chat .status{display:none}
 
   .suggest{flex:none;display:flex;flex-wrap:wrap;gap:7px;margin:0 0 10px}
@@ -645,7 +709,12 @@
     .shell{display:flex;flex-direction:column;height:auto;overflow:visible}
     .pane{height:auto}
     .pane-main{order:1;padding:16px}
-    .pane-chat{order:2;max-height:none;border-top:1px solid var(--seam);border-left:0;padding:14px 16px}
+    .pane-chat{order:2;max-height:none;border-top:1px solid var(--seam);border-left:0;padding:0;box-shadow:none}
+    .pane-main{box-shadow:none}
+    /* Stacked, the transcript cannot take its share of a shared height, so
+       give it a fixed window of its own rather than letting it run forever. */
+    #paneScript .transcript{max-height:46vh}
+    .tabpane{padding:12px 16px 16px}
     .pane-nav{order:3;display:none;border-right:0;border-top:1px solid var(--seam)}
     .pane-nav.open{display:flex}
     .result-scroll,.chat-log,.bucket-list{overflow:visible;max-height:none}
@@ -1006,29 +1075,39 @@
       </div>
       </div>
 
-      <details class="stream" id="txDetails" style="display:none">
-        <summary>Raw transcript</summary>
-        <pre class="transcript" id="txText"></pre>
-      </details>
     </div>
   </main>
 
-  <!-- ── Conversation ── -->
-  <aside class="pane pane-chat chat" id="chatPanel" aria-label="Ask about these notes">
-    <div class="chat-head">
-      <h3>Ask</h3>
-      <span class="note">Grounded in the video</span>
+  <!-- ── Side panel: ask, read the transcript, check the sources ── -->
+  <aside class="pane pane-chat chat" id="chatPanel" aria-label="Ask, transcript and sources">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab on" id="tabChat"   role="tab" aria-selected="true">Ask</button>
+      <button type="button" class="tab"    id="tabScript" role="tab" aria-selected="false">Transcript</button>
+      <button type="button" class="tab"    id="tabSrc"    role="tab" aria-selected="false">Sources</button>
     </div>
-    <div class="chat-empty" id="chatEmpty">
-      Generate notes, then ask anything about them here.
-    </div>
-    <div class="suggest" id="chatSuggest"></div>
-    <div class="chat-log" id="chatLog"></div>
-    <form class="chat-form" id="chatForm">
-      <textarea id="chatInput" rows="1" placeholder="Ask a question, or say what to keep…"></textarea>
-      <button type="button" id="chatApply" title="Rewrite the notes to follow this">Add to notes</button>
-      <button type="submit" class="primary" id="chatSend">Ask</button>
-    </form>
+
+    <section class="tabpane on" id="paneChat" role="tabpanel" aria-labelledby="tabChat">
+      <div class="chat-empty" id="chatEmpty">
+        Generate notes, then ask anything about them here.
+      </div>
+      <div class="suggest" id="chatSuggest"></div>
+      <div class="chat-log" id="chatLog"></div>
+      <form class="chat-form" id="chatForm">
+        <textarea id="chatInput" rows="1" placeholder="Ask a question, or say what to keep…"></textarea>
+        <button type="button" id="chatApply" title="Rewrite the notes to follow this">Add to notes</button>
+        <button type="submit" class="primary" id="chatSend">Ask</button>
+      </form>
+    </section>
+
+    <section class="tabpane" id="paneScript" role="tabpanel" aria-labelledby="tabScript" hidden>
+      <div class="tab-empty" id="txEmpty">The transcript appears here once a video has been read.</div>
+      <pre class="transcript" id="txText"></pre>
+    </section>
+
+    <section class="tabpane" id="paneSrc" role="tabpanel" aria-labelledby="tabSrc" hidden>
+      <div class="tab-empty" id="srcEmpty">Where these notes came from, and anything the source hunt turns up.</div>
+      <div id="srcBody"></div>
+    </section>
   </aside>
 
 </div>
@@ -1391,9 +1470,8 @@ async function preview(){
       body:JSON.stringify({url:body.url})});
     const d = await r.json();
     if(!r.ok){ setStatus(d.error||"Failed.", {err:true}); return; }
-    $("txDetails").style.display="";
-    $("txDetails").open = true;
-    $("txText").textContent = d.text;
+    setTranscript(d.text);
+    showTab("Script");
     setStatus(`Transcript ready (${d.chars.toLocaleString()} chars).`);
   }catch(e){ setStatus("Network error: "+e.message, {err:true}); }
 }
@@ -1418,12 +1496,14 @@ function beginDocument(){
   $("outTitle").textContent = "Working…";
   $("btnSave").disabled = $("btnCopy").disabled = $("btnDownload").disabled = true;
   $("btnSave").textContent = "Save";
-  $("txDetails").style.display = "none";
-  $("txDetails").open = false;
-  $("txText").textContent = "";
+  setTranscript("");
   $("chatPanel").classList.remove("on");
+  setChatReady(false);
   $("chatLog").innerHTML = ""; $("chatSuggest").innerHTML = "";
   chatSession = null; chatHistory = [];
+  setTranscript("");
+  setSource(null);
+  showTab("Chat");
   $("resultScroll").scrollTop = 0;
 }
 
@@ -1449,7 +1529,10 @@ async function makeNotes(ev){
     $("btnCopy").disabled = $("btnDownload").disabled = false;
     $("btnSave").disabled = false; $("btnSave").textContent = "Save";
     openChat(d.session);
-    setStatus("Notes generated. Ask a follow-up below.");
+    setSource({url: $("url").value.trim(), title: d.title,
+               platform: d.platform, thumbnail: d.thumbnail});
+    if(d.transcript_chars) $("tabScript").classList.add("has");
+    setStatus("Notes generated — ask a follow-up on the right.");
   }catch(e){
     $("notes").className = "notes";
     $("notes").innerHTML = "";
@@ -1474,11 +1557,101 @@ const SUGGESTIONS = [
   "Quiz me on this",
 ];
 
+/* The side panel holds three things that all belong to the same note: the
+   conversation, the words it was made from, and where it came from. Tabs let
+   one narrow column serve all three — and give the transcript a real home
+   instead of a collapsed <details> buried under the notes. */
+const TABS = ["Chat", "Script", "Src"];
+const TAB_PANES = {Chat: "paneChat", Script: "paneScript", Src: "paneSrc"};
+
+function showTab(which){
+  TABS.forEach(t => {
+    const on = t === which;
+    const tab = $("tab" + t), pane = $(TAB_PANES[t]);
+    tab.classList.toggle("on", on);
+    tab.setAttribute("aria-selected", on ? "true" : "false");
+    pane.hidden = !on;
+    pane.classList.toggle("on", on);
+  });
+}
+TABS.forEach(t => $("tab" + t).addEventListener("click", () => showTab(t)));
+
+function setTranscript(text){
+  $("txText").textContent = text || "";
+  $("txEmpty").hidden = !!text;
+  $("tabScript").classList.toggle("has", !!text);
+}
+
+/* What these notes were made from, plus anything the source hunt found.
+   Built here rather than appended to the chat so that checking a citation
+   does not mean scrolling back through a conversation. */
+let srcFindings = [];
+
+function setSource(meta){
+  srcFindings = [];
+  const body = $("srcBody");
+  body.innerHTML = "";
+  if(!meta || !meta.url){
+    $("srcEmpty").hidden = false;
+    $("tabSrc").classList.remove("has");
+    return;
+  }
+  $("srcEmpty").hidden = true;
+  $("tabSrc").classList.add("has");
+
+  const card = document.createElement("div");
+  card.className = "src-card";
+  if(meta.thumbnail){
+    const img = document.createElement("img");
+    img.loading = "lazy"; img.alt = ""; img.src = meta.thumbnail;
+    img.addEventListener("error", () => img.remove());
+    card.appendChild(img);
+  }
+  const a = document.createElement("a");
+  a.href = meta.url; a.target = "_blank"; a.rel = "noopener";
+  a.textContent = meta.title || meta.url;
+  card.appendChild(a);
+  if(meta.platform){
+    const tag = document.createElement("div");
+    tag.className = "src-tag"; tag.textContent = meta.platform;
+    card.appendChild(tag);
+  }
+  body.appendChild(card);
+}
+
+/* Research findings land here as well as in the conversation. */
+function addFindings(claim, html){
+  srcFindings.push({claim, html});
+  $("srcEmpty").hidden = true;
+  $("tabSrc").classList.add("has");
+  const block = document.createElement("div");
+  block.className = "src-find";
+  const h = document.createElement("div");
+  h.className = "src-claim"; h.textContent = claim;
+  block.appendChild(h);
+  const wrap = document.createElement("div");
+  wrap.innerHTML = html;
+  block.appendChild(wrap);
+  $("srcBody").appendChild(block);
+}
+
+/* Enable or disable the composer to match whether there is anything to ask
+   about, so the control is never clickable-but-useless. */
+function setChatReady(ready){
+  $("chatInput").disabled = !ready;
+  $("chatSend").disabled = !ready;
+  $("chatApply").disabled = !ready;
+  $("chatInput").placeholder = ready
+    ? "Ask a question, or say what to keep…"
+    : "Generate notes first, then ask here…";
+}
+
 function openChat(session){
   chatSession = session || null;
   chatHistory = [];
   $("chatLog").innerHTML = "";
   $("chatPanel").classList.add("on");
+  setChatReady(true);
 
   const box = $("chatSuggest");
   box.innerHTML = "";
@@ -2013,7 +2186,12 @@ async function openSaved(id){
     $("btnCopy").disabled = $("btnDownload").disabled = false;
     $("btnSave").disabled = true;          // already in the bucket
     if(d.url) $("url").value = d.url;
-    $("txDetails").style.display = "none";
+    // A saved note returns only the transcript's length, not its text, so the
+    // Transcript tab stays empty rather than claiming to have it.
+    setTranscript("");
+    setSource({url: d.url, title: d.title, platform: d.platform,
+               thumbnail: d.thumbnail});
+    showTab("Chat");
     openChat(d.session);
     setStatus("Opened from your saved notes.");
     $("paneNav").classList.remove("open");
@@ -2166,6 +2344,7 @@ $("btnLogout").addEventListener("click", async () => {
   location.reload();
 });
 
+setChatReady(false);
 setGateMode("login");
 checkSession();
 
@@ -2228,7 +2407,7 @@ $("btnNew").addEventListener("click", () => {
   $("outTitle").textContent = "Notes";
   $("btnSave").disabled = $("btnCopy").disabled = $("btnDownload").disabled = true;
   $("btnSave").textContent = "Save";
-  $("txDetails").style.display = "none";
+  setTranscript("");
   $("chatPanel").classList.remove("on");
   $("chatLog").innerHTML = ""; $("chatSuggest").innerHTML = "";
   chatSession = null; chatHistory = [];
@@ -2352,7 +2531,11 @@ async function runResearch(){
   try{
     const d = await runJob("/api/research", {claim, instruction, session: chatSession});
     thinking.remove();
-    addMsg("bot", renderFindings(d));
+    const html = renderFindings(d);
+    addMsg("bot", html);
+    // Also filed under Sources, so checking a citation later does not mean
+    // scrolling back through the conversation to find it.
+    addFindings(claim.slice(0, 160), html);
     chatHistory.push(
       {role:"user", content:"Find sources for: " + claim},
       {role:"assistant", content:(d.verdict || "") + " " +

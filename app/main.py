@@ -742,7 +742,7 @@ def saved_get(note_id: str, user: auth.User = Depends(current_user)):
         "topic": row.topic, "note_kind": row.note_kind,
         "notes": row.notes, "transcript_chars": len(row.transcript),
         "category": row.category, "category_reason": row.category_reason,
-        "subject": row.subject,
+        "subject": row.subject, "thumbnail": row.thumbnail,
         "created_at": row.created_at, "session": sid,
     }
 
