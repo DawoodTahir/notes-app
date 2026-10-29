@@ -149,6 +149,14 @@
     --page:#0b0b14; --bg-nav:#0e0e18; --bg-chat:#11111d; --bg-doc:#171726;
     --surface:#1c1c2c; --surface-2:#212132; --field:#13131f;
     --seam:#2d2c42; --line:#28273a;
+    /* Dark glass is a tinted dark panel, not a white one at low opacity.
+       Omitting these let the light values leak through, which put white
+       frosting over a dark page whenever the theme was switched by hand. */
+    --glass:rgba(32,31,50,.55); --glass-2:rgba(38,37,58,.70);
+    --glass-3:rgba(44,43,66,.84);
+    --glass-line:rgba(255,255,255,.10); --glass-edge:rgba(0,0,0,.45);
+    --glass-hi:rgba(255,255,255,.14);
+    --glow-c:rgba(50,170,200,.14);
     --glow-a:rgba(123,92,240,.22); --glow-b:rgba(224,86,122,.13);
     --ok:#5cc394; --warn:#dd8b57; --err:#ef7b71; --err-wash:rgba(239,123,113,.12);
     --p-x:#b9b6c9;
