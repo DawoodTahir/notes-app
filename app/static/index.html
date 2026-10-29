@@ -507,6 +507,15 @@
     background:transparent;border:1px solid transparent;font:inherit;color:inherit;
   }
   .result:hover{background:var(--glass-2);border-color:var(--glass-line)}
+  .result.link{background:var(--glass-2);border-color:var(--brand-line)}
+  .back-results{
+    display:inline-flex;align-items:center;gap:7px;margin:0 22px 10px;
+    font-size:12px;padding:6px 12px;border-radius:100px;cursor:pointer;
+    color:var(--brand);background:var(--brand-soft);border:1px solid var(--brand-line);
+  }
+  .back-results:hover{background:var(--glass-3);border-color:var(--brand)}
+  @media (max-width:900px){.back-results{margin:0 16px 10px}}
+
   .rbody{min-width:0;flex:1}
   .result.picked{background:var(--glass-3);border-color:var(--brand-line)}
   .ract{flex:none;display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .14s ease}
@@ -1233,6 +1242,10 @@
       </div>
     </div>
 
+    <button type="button" class="back-results" id="btnBackResults" hidden>
+      <span aria-hidden="true">&#8592;</span> <span id="backResultsText"></span>
+    </button>
+
     <div class="drop-tally" id="dropTally" hidden>
       <span class="dt-n"></span>
       <button type="button" id="btnRestoreAll">put them back</button>
@@ -1296,6 +1309,11 @@
 <script>
 const $ = id => document.getElementById(id);
 let lastNotesMd = "", lastTitle = "notes";
+
+/* The last search, kept so opening a note is not a one-way door. Reading a
+   result and wanting the list back is the normal case, and until now the
+   only way was to type the search again. */
+let lastSearch = null;
 
 /* Points the reader has dropped, as indices into lastNotesMd's lines.
 
@@ -1685,6 +1703,7 @@ function beginDocument(){
   setTranscript("");
   setSource(null);
   showTab("Chat");
+  offerBackToResults();
   $("resultScroll").scrollTop = 0;
 }
 
@@ -2049,8 +2068,13 @@ function refreshMode(){
   const v = $("url").value;
   const link = looksLikeLink(v);
   const empty = !v.trim();
-  $("btnNotes").textContent = link || empty ? "Generate notes" : "Search videos";
-  $("btnPreview").hidden = !link;
+  // A pasted link gets the same treatment as a search result: its own card,
+  // with Generate on it. The form keeps a button only for searching, so
+  // there is never a Generate sitting apart from the thing it generates.
+  $("btnNotes").textContent = "Search videos";
+  $("btnNotes").hidden = link || empty;
+  $("btnPreview").hidden = true;
+  if(link) showLinkCard(v.trim()); else if(!lastSearch) $("searchResults").innerHTML = "";
   // Describing a need is a third thing you can do here, and only makes sense
   // once there is enough prose to plan from.
   $("btnAuto").hidden = link || v.trim().length < 12;
@@ -2217,6 +2241,117 @@ function renderWebSources(pages){
 
 $("btnWeb").addEventListener("click", askWeb);
 
+/* Each result carries its own action. A Generate button in the form is
+   the wrong place once there is a list of videos on screen: picking one
+   meant loading it into the box, looking back up, and pressing a button
+   somewhere else. The decision and the act belong together. */
+function renderResults(results){
+  $("searchResults").innerHTML = "";
+  results.forEach((v, i) => {
+    const row = document.createElement("div");
+    row.className = "result";
+    row.innerHTML = (v.thumbnail
+        ? `<span class="rthumb"><img loading="lazy" decoding="async" alt=""></span>`
+        : `<span class="idx">${String(i+1).padStart(2,"0")}</span>`)
+      + `<span class="rbody"><span class="rt"></span><span class="rm"></span></span>`
+      + `<span class="ract">`
+      + `<button type="button" class="rgo">Generate notes</button>`
+      + `<button type="button" class="rprev" title="Fetch the transcript first">Preview</button>`
+      + `</span>`;
+
+    const rimg = row.querySelector(".rthumb img");
+    if(rimg){
+      rimg.src = v.thumbnail;
+      rimg.addEventListener("error", () => row.querySelector(".rthumb").remove());
+    }
+    row.querySelector(".rt").textContent = v.title;
+    row.querySelector(".rm").textContent =
+      [v.uploader, fmtDuration(v.duration), fmtViews(v.views)].filter(Boolean).join(" · ");
+
+    const load = () => { $("url").value = v.url; refreshMode(); };
+
+    row.querySelector(".rgo").addEventListener("click", ev => {
+      ev.stopPropagation();
+      load();
+      $("searchResults").innerHTML = "";
+      makeNotes(new Event("submit"));
+    });
+    row.querySelector(".rprev").addEventListener("click", ev => {
+      ev.stopPropagation();
+      load();
+      preview();
+    });
+    // Clicking the row itself just selects it, for anyone who wants to
+    // change the style chips before generating.
+    row.addEventListener("click", () => {
+      load();
+      [...$("searchResults").children].forEach(c => c.classList.remove("picked"));
+      row.classList.add("picked");
+      setStatus(`Selected: ${v.title.slice(0,60)}`);
+    });
+    $("searchResults").appendChild(row);
+  });
+  offerBackToResults();
+}
+
+/* The pasted link, shown as a card you act on.
+
+   YouTube addresses its thumbnails by video id, so the poster appears with
+   no request at all; anything else gets the card without one rather than a
+   guessed URL that would 404 in place. */
+let linkCardFor = "";
+
+function youtubeId(u){
+  const m = String(u).match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([0-9A-Za-z_-]{11})/);
+  return m ? m[1] : (/^[0-9A-Za-z_-]{11}$/.test(u) ? u : "");
+}
+
+function showLinkCard(url){
+  if(linkCardFor === url && $("searchResults").querySelector(".result.link")) return;
+  linkCardFor = url;
+  const id = youtubeId(url);
+  const thumb = id ? `https://i.ytimg.com/vi/${id}/mqdefault.jpg` : "";
+
+  $("searchResults").innerHTML = "";
+  const row = document.createElement("div");
+  row.className = "result link picked";
+  row.innerHTML = (thumb
+      ? `<span class="rthumb"><img loading="lazy" decoding="async" alt=""></span>`
+      : `<span class="idx">&#128279;</span>`)
+    + `<span class="rbody"><span class="rt"></span><span class="rm"></span></span>`
+    + `<span class="ract">`
+    + `<button type="button" class="rgo">Generate notes</button>`
+    + `<button type="button" class="rprev" title="Fetch the transcript first">Preview</button>`
+    + `</span>`;
+  const img = row.querySelector(".rthumb img");
+  if(img){ img.src = thumb; img.addEventListener("error", () => row.querySelector(".rthumb").remove()); }
+  row.querySelector(".rt").textContent = "Ready to read this link";
+  row.querySelector(".rm").textContent = url.replace(/^https?:\/\//, "").slice(0, 72);
+  row.querySelector(".rgo").addEventListener("click", () => makeNotes(new Event("submit")));
+  row.querySelector(".rprev").addEventListener("click", preview);
+  $("searchResults").appendChild(row);
+}
+
+/* Put the last set of results back on screen. */
+function restoreResults(){
+  if(!lastSearch) return;
+  $("url").value = lastSearch.query;
+  refreshMode();
+  renderResults(lastSearch.results);
+  $("btnBackResults").hidden = true;
+  $("searchResults").scrollIntoView({block:"nearest", behavior:"smooth"});
+}
+
+function offerBackToResults(){
+  const has = !!(lastSearch && lastSearch.results.length)
+              && !$("searchResults").children.length;
+  $("btnBackResults").hidden = !has;
+  if(has) $("backResultsText").textContent =
+    `back to ${lastSearch.results.length} results for "${lastSearch.query.slice(0,40)}"`;
+}
+
+$("btnBackResults").addEventListener("click", restoreResults);
+
 async function runSearch(query){
   $("btnNotes").disabled = true;
   $("searchResults").innerHTML = "";
@@ -2230,56 +2365,9 @@ async function runSearch(query){
     if(!r.ok || d.error){ setStatus(d.error || "Search failed.", {err:true}); return; }
     if(!d.results.length){ setStatus("Nothing found. Try different words."); return; }
 
-    setStatus(`${d.count} results — pick one to load it.`);
-    /* Each result carries its own action. The Generate button lives up in
-       the form, which is the wrong place once there is a list of videos on
-       screen: picking one meant loading it into the box, looking back up,
-       and pressing a button somewhere else. The decision and the act belong
-       together. */
-    d.results.forEach((v, i) => {
-      const row = document.createElement("div");
-      row.className = "result";
-      row.innerHTML = (v.thumbnail
-          ? `<span class="rthumb"><img loading="lazy" decoding="async" alt=""></span>`
-          : `<span class="idx">${String(i+1).padStart(2,"0")}</span>`)
-        + `<span class="rbody"><span class="rt"></span><span class="rm"></span></span>`
-        + `<span class="ract">`
-        + `<button type="button" class="rgo">Generate notes</button>`
-        + `<button type="button" class="rprev" title="Fetch the transcript first">Preview</button>`
-        + `</span>`;
-
-      const rimg = row.querySelector(".rthumb img");
-      if(rimg){
-        rimg.src = v.thumbnail;
-        rimg.addEventListener("error", () => row.querySelector(".rthumb").remove());
-      }
-      row.querySelector(".rt").textContent = v.title;
-      row.querySelector(".rm").textContent =
-        [v.uploader, fmtDuration(v.duration), fmtViews(v.views)].filter(Boolean).join(" · ");
-
-      const load = () => { $("url").value = v.url; refreshMode(); };
-
-      row.querySelector(".rgo").addEventListener("click", ev => {
-        ev.stopPropagation();
-        load();
-        $("searchResults").innerHTML = "";
-        makeNotes(new Event("submit"));
-      });
-      row.querySelector(".rprev").addEventListener("click", ev => {
-        ev.stopPropagation();
-        load();
-        preview();
-      });
-      // Clicking the row itself just selects it, for anyone who wants to
-      // change the style chips before generating.
-      row.addEventListener("click", () => {
-        load();
-        [...$("searchResults").children].forEach(c => c.classList.remove("picked"));
-        row.classList.add("picked");
-        setStatus(`Selected: ${v.title.slice(0,60)}`);
-      });
-      $("searchResults").appendChild(row);
-    });
+    lastSearch = {query, results: d.results};
+    setStatus(`${d.count} results — pick one.`);
+    renderResults(d.results);
   }catch(e){
     setStatus("Network error: " + e.message, {err:true});
   }finally{
@@ -2475,6 +2563,7 @@ async function openSaved(id){
                thumbnail: d.thumbnail});
     showTab("Chat");
     openChat(d.session);
+    offerBackToResults();
     setStatus("Opened from your saved notes.");
     $("paneNav").classList.remove("open");
     $("resultScroll").scrollTop = 0;

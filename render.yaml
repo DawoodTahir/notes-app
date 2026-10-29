@@ -48,6 +48,8 @@ services:
         value: openai               # Gemini speaks the OpenAI protocol too
       - key: OPENAI_BASE_URL
         value: https://generativelanguage.googleapis.com/v1beta/openai
+      - key: NOTES_STANDPOINT
+        sync: false              # how the library is organised; see .env.example
       - key: NOTE_CHAR_BUDGET
         value: "200000"          # one pass per video; chunking costs ~10x
       - key: OPENAI_MODEL

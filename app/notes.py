@@ -503,18 +503,50 @@ def answer_question(req: ChatRequest) -> str:
 # Filing a saved note under a category
 # ─────────────────────────────────────────────────────────────
 
-CLASSIFY_SYSTEM = """\
+def standpoint() -> str:
+    """
+    The position the library is kept from.
+
+    Notes like these are not an encyclopaedia; they are preparation. What
+    matters when you open a folder is not which academic field the material
+    belongs to but who you would be talking to. So the owner's own position
+    is the baseline and never a folder of its own — the folder is whatever
+    that position is being asked to answer.
+    """
+    return (os.environ.get("NOTES_STANDPOINT") or "").strip()
+
+
+def _classify_system(view: str) -> str:
+    frame = (
+        f"The library belongs to someone whose own position is: {view}.\n"
+        "That position is the baseline. It is never a folder, and neither is\n"
+        "any academic field it sits in. File by WHO OR WHAT THE MATERIAL\n"
+        "ANSWERS — the tradition, movement, claim or school being engaged —\n"
+        "so that opening a folder shows what to say to that interlocutor.\n\n"
+        "  Notes arguing the Bible does not teach the Trinity   -> Christianity\n"
+        "  Notes answering Ahmadi claims about prophethood      -> Ahmadiyya\n"
+        "  Notes on Vedic chronology against Abrahamic claims   -> Hinduism\n"
+        "  Notes answering arguments that God does not exist    -> Atheism\n"
+        "  Notes on an internal question with no opponent       -> name the\n"
+        "     question's own field, e.g. Qur'anic sciences\n\n"
+        "Material that merely expounds the baseline position, with nothing\n"
+        "being answered, goes to the field it belongs to — not to a folder\n"
+        "named after the baseline itself.\n"
+    ) if view else (
+        "Name folders after the subject the material is ABOUT — the tradition,\n"
+        "field, person or topic it concerns — not the format it came in.\n"
+    )
+
+    return f"""\
 You file a set of notes into the right folder in someone's library, and give
 them a subject line that says what the material is actually about.
 
+{frame}
 You are given the folders that already exist. Strongly prefer an existing one:
 a library is only useful if related material lands together. Create a new folder
 only when the notes genuinely do not belong in any of them.
 
-Name folders after the subject the material is ABOUT — the tradition, field,
-person or topic it concerns — not the format it came in. "Sikhism", "Hinduism",
-"Comparative theology", "Machine learning" are folders. "YouTube", "Debate",
-"Video notes", "Interesting" are not.
+"YouTube", "Debate", "Video notes", "Interesting" are never folders.
 
 SUBJECT: the question or claim the material actually turns on — 4 to 9 words.
 Video titles are written to be clicked, not to describe; ignore the title and
@@ -529,10 +561,10 @@ in dispute and, if one side is defending a position, whose position it is.
 Sentence case, no trailing full stop, no quotation marks.
 
 Return ONLY a JSON object:
-{"category":"<folder name, 1-3 words, Title Case>",
+{{"category":"<folder name, 1-3 words, Title Case>",
  "subject":"<the subject line>",
  "reason":"<one sentence citing what in the notes puts it there>",
- "is_new": true|false}
+ "is_new": true|false}}
 
 The reason is kept as the justification for the filing, so cite the actual
 content — a name, a claim, a scripture, a concept — not a generality.
@@ -588,7 +620,7 @@ def classify_note(title: str, notes: str, existing: Optional[list[str]] = None,
         + f"\n\nTitle: {title or 'Untitled'}\n\nNotes:\n\"\"\"{(notes or '')[:budget]}\"\"\"\n\nJSON:"
     )
     try:
-        raw = _dispatch(provider, CLASSIFY_SYSTEM, user, model, max_tokens=500)
+        raw = _dispatch(provider, _classify_system(standpoint()), user, model, max_tokens=500)
     except Exception:
         return "Unfiled", "", ""
 

@@ -77,5 +77,22 @@ if problems:
     sys.stderr.write("UI contract broken:\n- " + "\n- ".join(problems) + "\n")
     sys.exit(2)
 
+# env-quoting: run.sh sources .env as shell, so an unquoted value containing
+# spaces is executed instead of assigned and the server will not start.
+env = path.parent.parent.parent / ".env"
+if env.exists():
+    bad = []
+    for n, line in enumerate(env.read_text().splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        val = line.split("=", 1)[1]
+        if " " in val and not (val.startswith(('"', "'")) and val.endswith(('"', "'"))):
+            bad.append(f"{line.split('=')[0]} (line {n})")
+    if bad:
+        sys.stderr.write("UI contract broken:\n- .env values with spaces must be "
+                         "quoted; run.sh sources the file: " + ", ".join(bad) + "\n")
+        sys.exit(2)
+
 print(f"ui contract OK ({len(used)} bound ids, script parses)")
 PY
