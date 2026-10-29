@@ -5,9 +5,16 @@ The app could already find videos. This covers the other half: a question
 whose answer is a page rather than a talk. It searches, opens the most
 promising results, and writes an answer that cites them.
 
-No API key. DuckDuckGo's HTML endpoint needs no account and costs nothing,
-which keeps this in line with the rest of the app — the only thing that
-costs money here is the model call at the end.
+Two ways of doing it. When the note provider is Gemini, the model's own
+Google Search grounding does the work: real Google results, the answer and
+its citations produced together, and 5,000 grounded requests a month
+included before anything is charged. Otherwise it falls back to scraping
+DuckDuckGo's keyless HTML endpoint and reading the pages here.
+
+The grounded path is better on every axis that matters — Google's index
+rather than one scraped page of results, and no parser to break when a site
+changes its markup — so the fallback exists only to keep the feature working
+if the provider is not Gemini.
 
 Nothing a page says is treated as an instruction. Fetched text is quoted
 material: it is put in front of the model as something to summarise, never
@@ -17,6 +24,8 @@ as something to obey.
 from __future__ import annotations
 
 import html
+import json
+import os
 import re
 import urllib.error
 import urllib.parse
@@ -132,6 +141,102 @@ def read(url: str) -> str:
     return "\n".join(l for l in lines if len(l) > 40)[:PAGE_CHARS]
 
 
+GROUNDING_HOST = "https://generativelanguage.googleapis.com"
+GROUNDED_SOURCES = _env_int("WEB_GROUNDED_SOURCES", 8)
+
+
+def _is_gemini() -> bool:
+    return "generativelanguage.googleapis.com" in (
+        os.environ.get("OPENAI_BASE_URL") or "")
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):      # noqa: D102 - we want the header
+        return None
+
+
+def _resolve(uri: str) -> str:
+    """
+    Turn a grounding redirect into the address it points at.
+
+    Google hands back vertexaisearch.cloud.google.com links. They work in a
+    browser, but a citation you cannot read at a glance is a worse citation,
+    and the real host is most of what tells you whether to trust it.
+    """
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        opener.open(urllib.request.Request(
+            uri, method="HEAD", headers={"User-Agent": UA}), timeout=10)
+    except urllib.error.HTTPError as e:
+        return e.headers.get("Location") or uri
+    except Exception:
+        return uri
+    return uri
+
+
+def _grounded(query: str, model: Optional[str], say: Progress) -> Optional[dict]:
+    """Answer using the model's own Google Search. None if unavailable."""
+    key = os.environ.get("OPENAI_API_KEY") or ""
+    model = model or os.environ.get("OPENAI_MODEL") or "gemini-3.1-flash-lite"
+    if not key:
+        return None
+
+    say("searching Google", 12)
+    req = urllib.request.Request(
+        f"{GROUNDING_HOST}/v1beta/models/{model}:generateContent",
+        data=json.dumps({
+            "contents": [{"parts": [{"text": query}]}],
+            "tools": [{"google_search": {}}],
+        }).encode(),
+        headers={"Content-Type": "application/json", "x-goog-api-key": key},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90) as r:
+            data = json.loads(r.read().decode())
+    except Exception:
+        return None                      # fall back to reading pages ourselves
+
+    cand = (data.get("candidates") or [{}])[0]
+    text = "".join(p.get("text", "")
+                   for p in ((cand.get("content") or {}).get("parts") or [])).strip()
+    if not text:
+        return None
+
+    meta = cand.get("groundingMetadata") or {}
+    chunks = meta.get("groundingChunks") or []
+
+    say("checking the sources", 70)
+    pages, seen = [], set()
+    for c in chunks:
+        web = c.get("web") or {}
+        uri = web.get("uri") or ""
+        if not uri:
+            continue
+        real = _resolve(uri)
+        host = (urllib.parse.urlparse(real).hostname or web.get("title") or "").lower()
+        if real in seen:
+            continue
+        seen.add(real)
+        pages.append({"title": web.get("title") or host or real,
+                      "url": real, "host": host})
+        if len(pages) >= GROUNDED_SOURCES:
+            break
+
+    sources = "\n".join(f"**[{i}]** [{p['title']}]({p['url']}) — {p['host']}"
+                         for i, p in enumerate(pages, start=1))
+    answer_md = text + (f"\n\n## Sources\n\n{sources}\n" if sources else "")
+    return {
+        "query": query,
+        "answer": answer_md,
+        "results": pages,
+        "read": pages,
+        "queries": meta.get("webSearchQueries") or [],
+        "grounded": True,
+        "message": (f"Answered from Google Search across {len(pages)} source"
+                    f"{'' if len(pages) == 1 else 's'}."),
+    }
+
+
 ANSWER_SYSTEM = """\
 You are answering a question from pages someone has just fetched for you.
 
@@ -156,6 +261,12 @@ def answer(query: str, provider: str = "openai", model: Optional[str] = None,
            progress: Optional[Progress] = None) -> dict:
     """Search, read the best few results, and answer with citations."""
     say = progress or (lambda *_a, **_k: None)
+
+    if _is_gemini():
+        grounded = _grounded(query, model, say)
+        if grounded:
+            return grounded
+        say("grounding unavailable — reading pages instead", 10)
 
     say("searching the web", 8)
     results = search(query)
