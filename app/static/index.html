@@ -32,6 +32,19 @@
      responsive. Every selector is defined exactly once.
      ═══════════════════════════════════════════════════════════════ */
 
+  /* Everything below assumes the glass actually frosts. Where the browser
+     cannot blur, translucency alone leaves text sitting on whatever is
+     behind it — so those tokens fall back to solid surfaces. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
+    :root{
+      --glass:var(--bg-nav);
+      --glass-2:var(--surface);
+      --glass-3:var(--surface);
+      --glass-line:var(--line);
+      --glass-hi:transparent;
+    }
+  }
+
   /* ── 1. Tokens ───────────────────────────────────────────────── */
   :root{
     /* brand */
@@ -62,6 +75,20 @@
 
     --glow-a:rgba(108,86,240,.14);
     --glow-b:rgba(224,86,122,.11);
+    --glow-c:rgba(60,190,210,.10);
+
+    /* Glass. Three depths: the panes behind, the surfaces on them, and the
+       things that float above both. Each pairs a translucency with the
+       border and top highlight that make it read as a pane of glass rather
+       than as a washed-out block. */
+    --glass:rgba(255,255,255,.58);
+    --glass-2:rgba(255,255,255,.72);
+    --glass-3:rgba(255,255,255,.86);
+    --glass-line:rgba(255,255,255,.65);
+    --glass-edge:rgba(23,20,60,.07);
+    --glass-hi:rgba(255,255,255,.85);
+    --blur:18px;
+    --blur-lg:26px;
 
     /* semantic (distinct from brand on purpose) */
     --ok:#23875e;
@@ -102,6 +129,11 @@
       --surface:#1c1c2c; --surface-2:#212132; --field:#13131f;
       --seam:#2d2c42; --line:#28273a;
       --glow-a:rgba(123,92,240,.22); --glow-b:rgba(224,86,122,.13);
+      --glow-c:rgba(50,170,200,.14);
+      --glass:rgba(32,31,50,.55); --glass-2:rgba(38,37,58,.70);
+      --glass-3:rgba(44,43,66,.84);
+      --glass-line:rgba(255,255,255,.10); --glass-edge:rgba(0,0,0,.45);
+      --glass-hi:rgba(255,255,255,.14);
       --ok:#5cc394; --warn:#dd8b57; --err:#ef7b71; --err-wash:rgba(239,123,113,.12);
       --p-x:#b9b6c9;
       --e1:0 1px 2px rgba(0,0,0,.35), 0 8px 22px -14px rgba(0,0,0,.7);
@@ -141,9 +173,13 @@
     color:var(--ink);
     font:400 14.5px/1.6 var(--sans);
     font-feature-settings:"kern" 1;
+    /* Glass needs something behind it. Three slow-drifting washes give the
+       panes colour to pick up and make the blur visible; without them
+       frosted panels just look grey. */
     background:
-      radial-gradient(1100px 620px at 10% -6%, var(--glow-a), transparent 62%),
-      radial-gradient(900px 560px at 96% 104%, var(--glow-b), transparent 60%),
+      radial-gradient(900px 560px at 12% -8%, var(--glow-a), transparent 60%),
+      radial-gradient(760px 520px at 92% 8%, var(--glow-c), transparent 58%),
+      radial-gradient(880px 580px at 78% 104%, var(--glow-b), transparent 60%),
       var(--page);
     background-attachment:fixed;
   }
@@ -152,8 +188,10 @@
 
   /* form controls */
   input,textarea,select{
-    width:100%;background:var(--field);color:var(--ink);
-    border:1px solid var(--line);border-radius:var(--r-sm);
+    width:100%;background:var(--glass-2);color:var(--ink);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    border:1px solid var(--glass-line);border-radius:var(--r-sm);
+    box-shadow:inset 0 1px 0 var(--glass-hi);
     padding:9px 11px;font:inherit;font-size:14px;outline:none;
     transition:border-color .12s ease,box-shadow .12s ease;
   }
@@ -169,10 +207,11 @@
   button{
     font:inherit;font-size:13.5px;font-weight:500;
     border-radius:var(--r-sm);padding:9px 14px;cursor:pointer;
-    border:1px solid var(--line);background:var(--surface);color:var(--ink);
+    border:1px solid var(--glass-line);background:var(--glass-2);color:var(--ink);
+    box-shadow:inset 0 1px 0 var(--glass-hi);
     transition:background .12s ease,border-color .12s ease,opacity .12s ease,filter .12s ease;
   }
-  button:hover:not(:disabled){border-color:var(--seam);background:var(--surface-2)}
+  button:hover:not(:disabled){border-color:var(--brand-line);background:var(--glass-3)}
   button:disabled{opacity:.45;cursor:not-allowed}
   button.primary{
     background:linear-gradient(140deg,var(--mark-b),var(--mark-a));
@@ -228,9 +267,11 @@
   .bar{
     display:flex;align-items:center;gap:12px;
     height:var(--bar-h);padding:0 20px;
-    background:color-mix(in srgb,var(--surface) 84%,transparent);
-    backdrop-filter:blur(10px);
-    border-bottom:1px solid var(--seam);
+    background:var(--glass-2);
+    -webkit-backdrop-filter:blur(var(--blur-lg)) saturate(170%);
+    backdrop-filter:blur(var(--blur-lg)) saturate(170%);
+    border-bottom:1px solid var(--glass-edge);
+    box-shadow:inset 0 1px 0 var(--glass-hi);
     position:relative;z-index:10;
   }
   .mark{
@@ -268,18 +309,26 @@
      and read as one flat surface; the document is now clearly the lit one in
      the middle, with the library and the side panel recessed on either side,
      and a real seam between them. */
+  /* Three panes of the same glass at three depths. The document is the
+     clearest — you read through it least — with the library and the side
+     panel left more translucent so the wash behind shows through and the
+     middle reads as the lit one. */
+  .pane-nav,.pane-main,.pane-chat{
+    -webkit-backdrop-filter:blur(var(--blur)) saturate(165%);
+    backdrop-filter:blur(var(--blur)) saturate(165%);
+  }
   .pane-nav{
-    background:var(--bg-nav);border-right:1px solid var(--seam);
+    background:var(--glass);border-right:1px solid var(--glass-edge);
     gap:10px;padding:14px 12px;
-    box-shadow:inset -8px 0 14px -14px rgba(23,20,60,.5);
+    box-shadow:inset 1px 1px 0 var(--glass-line);
   }
   .pane-main{
-    background:var(--surface);padding:16px 22px 14px;
-    box-shadow:0 0 22px -10px rgba(23,20,60,.13);z-index:1;
+    background:var(--glass-3);padding:16px 22px 14px;z-index:1;
+    box-shadow:inset 0 1px 0 var(--glass-hi), 0 0 36px -16px rgba(23,20,60,.22);
   }
   .pane-chat{
-    background:var(--bg-chat);border-left:1px solid var(--seam);padding:0;
-    box-shadow:inset 8px 0 14px -14px rgba(23,20,60,.5);
+    background:var(--glass);border-left:1px solid var(--glass-edge);padding:0;
+    box-shadow:inset -1px 1px 0 var(--glass-line);
   }
 
   /* section labels, one style everywhere */
@@ -332,8 +381,11 @@
   /* the stack */
   .card{
     position:relative;display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;
-    margin-top:-30px;padding:11px 12px 13px;border-radius:9px;
-    background:var(--surface);border:1px solid var(--line);box-shadow:var(--e1);
+    margin-top:-30px;padding:11px 12px 13px;border-radius:11px;
+    background:var(--glass-2);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(12px) saturate(160%);
+    backdrop-filter:blur(12px) saturate(160%);
+    box-shadow:var(--e1), inset 0 1px 0 var(--glass-hi);
     transition:transform .24s cubic-bezier(.2,.8,.3,1),box-shadow .24s ease,border-color .16s ease;
     will-change:transform;
   }
@@ -417,9 +469,9 @@
     padding:9px 10px;border-radius:var(--r-sm);cursor:pointer;
     background:transparent;border:1px solid transparent;font:inherit;color:inherit;
   }
-  .result:hover{background:var(--surface);border-color:var(--line)}
+  .result:hover{background:var(--glass-2);border-color:var(--glass-line)}
   .rbody{min-width:0;flex:1}
-  .result.picked{background:var(--surface);border-color:var(--brand-line)}
+  .result.picked{background:var(--glass-3);border-color:var(--brand-line)}
   .ract{flex:none;display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .14s ease}
   .result:hover .ract,.result.picked .ract,.ract:focus-within{opacity:1}
   @media (hover:none){.ract{opacity:1}}
@@ -449,9 +501,14 @@
   .doc-actions button{font-size:12.5px;padding:7px 11px}
 
   .result-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:4px}
+  /* The sheet the notes sit on: the most opaque glass in the app, because
+     it is the one surface meant for sustained reading. */
   .paper{
-    background:var(--surface);border:1px solid color-mix(in srgb,var(--brand) 8%,transparent);
-    border-radius:var(--r-lg);box-shadow:var(--e1);padding:24px 28px;min-height:220px;
+    background:var(--glass-3);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(14px) saturate(160%);
+    backdrop-filter:blur(14px) saturate(160%);
+    border-radius:var(--r-lg);padding:24px 28px;min-height:220px;
+    box-shadow:var(--e1), inset 0 1px 0 var(--glass-hi);
   }
   /* Idle: a flashcard that keeps moving until something is started */
   .idle{
@@ -584,7 +641,7 @@
     color:var(--ink-3);background:transparent;
   }
   .tab:hover{color:var(--ink-2)}
-  .tab.on{color:var(--ink);background:var(--surface)}
+  .tab.on{color:var(--ink);background:var(--glass-3);box-shadow:inset 0 1px 0 var(--glass-hi)}
   .tab.on::after{
     content:"";position:absolute;left:9px;right:9px;bottom:-1px;height:2px;
     border-radius:2px;background:var(--brand);
@@ -605,8 +662,8 @@
   }
   #paneSrc{overflow:auto}
   .src-card{
-    background:var(--surface);border:1px solid var(--line);border-radius:10px;
-    padding:10px;margin-bottom:12px;
+    background:var(--glass-2);border:1px solid var(--glass-line);border-radius:10px;
+    padding:10px;margin-bottom:12px;box-shadow:inset 0 1px 0 var(--glass-hi);
   }
   .src-card img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:7px;display:block;margin-bottom:8px}
   .src-card a{font-size:13px;font-weight:500;line-height:1.4;color:var(--ink);text-decoration:none;display:block}
@@ -648,7 +705,12 @@
   .msg.user{align-self:flex-end;flex-direction:row-reverse}
   .msg.user .who{background:var(--ink);color:var(--page)}
   .msg.bot .who{background:var(--brand-soft);color:var(--brand)}
-  .bubble{border-radius:var(--r-md);padding:10px 13px;font-size:14px;line-height:1.62;border:1px solid var(--line);background:var(--surface);min-width:0}
+  .bubble{
+    border-radius:var(--r-md);padding:10px 13px;font-size:14px;line-height:1.62;
+    border:1px solid var(--glass-line);background:var(--glass-2);min-width:0;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:inset 0 1px 0 var(--glass-hi);
+  }
   .msg.user .bubble{background:color-mix(in srgb,var(--brand) 9%,var(--surface));border-color:var(--brand-line)}
   .msg.err .bubble{background:var(--err-wash);border-color:transparent;border-left:2px solid var(--err);color:var(--err)}
   .bubble > :first-child{margin-top:0}
@@ -684,8 +746,22 @@
   .find-none{font-size:12.5px;color:var(--ink-2);line-height:1.5}
 
   /* ── 6. Overlays ─────────────────────────────────────────────── */
-  .gate{position:fixed;inset:0;z-index:100;background:var(--page);display:grid;place-items:center;padding:24px;overflow-y:auto}
-  .gate-card{width:100%;max-width:392px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--e3);padding:28px 28px 24px}
+  /* The gate frosts the whole app rather than covering it, so the thing
+     being signed into is still visible behind. */
+  .gate{
+    position:fixed;inset:0;z-index:100;display:grid;place-items:center;
+    padding:24px;overflow-y:auto;
+    background:color-mix(in srgb,var(--page) 55%,transparent);
+    -webkit-backdrop-filter:blur(26px) saturate(150%);
+    backdrop-filter:blur(26px) saturate(150%);
+  }
+  .gate-card{
+    width:100%;max-width:392px;padding:28px 28px 24px;border-radius:var(--r-lg);
+    background:var(--glass-3);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(20px) saturate(170%);
+    backdrop-filter:blur(20px) saturate(170%);
+    box-shadow:var(--e3), inset 0 1px 0 var(--glass-hi);
+  }
   .gate-mark{display:flex;align-items:center;gap:11px;margin-bottom:20px}
   .gate-card h2{font-family:var(--display);font-weight:500;font-size:21px;margin:0 0 5px;letter-spacing:-.01em}
   .gate-card .sub{color:var(--ink-2);font-size:13px;margin:0 0 20px;line-height:1.5}
@@ -696,7 +772,11 @@
 
   .probe{
     position:absolute;z-index:40;width:326px;max-width:calc(100vw - 32px);
-    background:var(--surface);border:1px solid var(--seam);border-radius:var(--r-md);box-shadow:var(--e3);padding:13px;
+    background:var(--glass-3);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(20px) saturate(170%);
+    backdrop-filter:blur(20px) saturate(170%);
+    border-radius:var(--r-md);padding:13px;
+    box-shadow:var(--e3), inset 0 1px 0 var(--glass-hi);
   }
   .claim{font-size:12px;color:var(--ink-2);line-height:1.5;margin:0 0 9px;max-height:56px;overflow:hidden;border-left:2px solid var(--brand);padding-left:9px}
   .probe textarea{min-height:56px;font-size:13px}
@@ -716,6 +796,18 @@
     .pane-nav{grid-row:1 / span 2}
     .pane-main{padding-bottom:0}
     .pane-chat{grid-column:2;border-left:0;border-top:1px solid var(--seam);padding:12px 22px 14px;max-height:46%}
+  }
+
+  /* Stacked on a phone the panes are full width and one above another, so
+     each blur covers the whole screen. Three of those is the one thing here
+     that reliably costs frames, so only the document keeps its frost and
+     the other two take a solid ground. */
+  @media (max-width:900px){
+    .pane-nav,.pane-chat{
+      -webkit-backdrop-filter:none;backdrop-filter:none;
+      background:color-mix(in srgb,var(--page) 80%,var(--surface));
+    }
+    .card{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--surface)}
   }
 
   /* phone: one column, ordinary page scrolling, library as a drawer */
@@ -910,9 +1002,10 @@
     bottom:calc(12px + env(safe-area-inset-bottom,0px));
     display:flex;align-items:center;gap:12px;
     padding:12px 12px 12px 14px;border-radius:14px;
-    background:color-mix(in srgb,var(--surface) 94%,transparent);
-    backdrop-filter:blur(14px);
-    border:1px solid var(--brand-line);
+    background:var(--glass-3);
+    -webkit-backdrop-filter:blur(22px) saturate(170%);
+    backdrop-filter:blur(22px) saturate(170%);
+    border:1px solid var(--glass-line);
     box-shadow:0 14px 40px -12px rgba(23,20,60,.38);
     animation:install-in .34s cubic-bezier(.2,.9,.3,1) both;
   }
