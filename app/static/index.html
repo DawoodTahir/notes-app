@@ -62,16 +62,26 @@
     --ink-2:#55527a;
     --ink-3:#8b88a6;
 
-    /* grounds, ordered by depth: page < nav < chat < doc < surface */
-    --page:#f3f2f9;
-    --bg-nav:#eae8f5;
-    --bg-chat:#f0eef9;
-    --bg-doc:#fbfbfe;
-    --surface:#ffffff;
-    --surface-2:#f6f5fb;
-    --field:#ffffff;
-    --seam:#d9d7e8;
-    --line:#e6e4f0;
+    /* grounds, ordered by depth: page < nav < chat < doc < surface.
+       Warm, not white. A sheet of pure #fff under a cool violet wash reads
+       as a hole in the page rather than as paper, and a long set of notes
+       on it is tiring to read. */
+    --page:#efedf7;
+    --bg-nav:#e6e3f2;
+    --bg-chat:#ebe8f6;
+    --bg-doc:#fbf9f6;
+    --surface:#fdfbf8;
+    --surface-2:#f4f1f8;
+    --paper:#fcfaf6;
+    --paper-rule:rgba(76,58,224,.10);
+    --field:#fdfcfa;
+    --seam:#d6d3e6;
+    --line:#e4e1ee;
+
+    /* A second accent, so structure is not all one colour. */
+    --accent:#1d8a9a;
+    --accent-soft:rgba(29,138,154,.12);
+    --accent-line:rgba(29,138,154,.3);
 
     --glow-a:rgba(108,86,240,.14);
     --glow-b:rgba(224,86,122,.11);
@@ -126,7 +136,9 @@
       --highlight-wash:rgba(229,185,60,.18);
       --ink:#ecebf6; --ink-2:#aaa7c4; --ink-3:#7c799a;
       --page:#0b0b14; --bg-nav:#0e0e18; --bg-chat:#11111d; --bg-doc:#171726;
-      --surface:#1c1c2c; --surface-2:#212132; --field:#13131f;
+      --surface:#1e1d2e; --surface-2:#242338; --field:#15141f;
+      --paper:#1b1a2a; --paper-rule:rgba(143,124,255,.16);
+      --accent:#53c6d4; --accent-soft:rgba(83,198,212,.14); --accent-line:rgba(83,198,212,.32);
       --seam:#2d2c42; --line:#28273a;
       --glow-a:rgba(123,92,240,.22); --glow-b:rgba(224,86,122,.13);
       --glow-c:rgba(50,170,200,.14);
@@ -147,7 +159,9 @@
     --highlight-wash:rgba(229,185,60,.18);
     --ink:#ecebf6; --ink-2:#aaa7c4; --ink-3:#7c799a;
     --page:#0b0b14; --bg-nav:#0e0e18; --bg-chat:#11111d; --bg-doc:#171726;
-    --surface:#1c1c2c; --surface-2:#212132; --field:#13131f;
+    --surface:#1e1d2e; --surface-2:#242338; --field:#15141f;
+    --paper:#1b1a2a; --paper-rule:rgba(143,124,255,.16);
+    --accent:#53c6d4; --accent-soft:rgba(83,198,212,.14); --accent-line:rgba(83,198,212,.32);
     --seam:#2d2c42; --line:#28273a;
     /* Dark glass is a tinted dark panel, not a white one at low opacity.
        Omitting these let the light values leak through, which put white
@@ -364,7 +378,16 @@
     margin:16px 2px 9px;padding-bottom:5px;border-bottom:1px solid var(--seam);
   }
   .folder:first-child{margin-top:2px}
-  .fname{font-family:var(--display);font-weight:600;font-size:13px;color:var(--ink)}
+  .fname{
+    font-family:var(--display);font-weight:600;font-size:13px;color:var(--ink);
+    display:flex;align-items:center;gap:7px;
+  }
+  /* A colour per folder, derived from its name, so the library reads as a
+     set of subjects rather than one long list. */
+  .fname::before{
+    content:"";width:7px;height:7px;border-radius:2px;flex:none;
+    background:hsl(var(--fh,262) 62% 56%);
+  }
   .nav-right{display:flex;align-items:center;gap:7px}
   .refile{
     font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
@@ -383,7 +406,10 @@
   .combine:disabled{color:var(--brand);border-color:var(--brand-line)}
   /* no hover on touch, so never hide it there */
   @media (hover:none){.combine{opacity:1}}
-  .fcount{font-size:10px;color:var(--ink-3);background:var(--surface-2);border:1px solid var(--line);border-radius:100px;padding:1px 6px}
+  .fcount{
+    font-size:10px;color:var(--ink-3);background:var(--glass-2);
+    border:1px solid var(--glass-line);border-radius:100px;padding:1px 7px;
+  }
   .deck{display:flex;flex-direction:column}
 
   /* the stack */
@@ -398,6 +424,9 @@
     will-change:transform;
   }
   .deck .card:first-child{margin-top:0}
+  /* Cards keep their platform colour: which site a note came from is more
+     use on the card itself than which folder it is in, and the folder is
+     already marked by the heading above it. */
   .card::before{
     content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;
     background:var(--pc,var(--p-other));opacity:.85;
@@ -512,7 +541,10 @@
   /* The sheet the notes sit on: the most opaque glass in the app, because
      it is the one surface meant for sustained reading. */
   .paper{
-    background:var(--glass-3);border:1px solid var(--glass-line);
+    background:
+      linear-gradient(180deg, color-mix(in srgb,var(--brand) 4%,transparent), transparent 220px),
+      var(--paper);
+    border:1px solid var(--glass-line);
     -webkit-backdrop-filter:blur(14px) saturate(160%);
     backdrop-filter:blur(14px) saturate(160%);
     border-radius:var(--r-lg);padding:24px 28px;min-height:220px;
@@ -586,16 +618,32 @@
   .notes > :first-child{margin-top:0}
   .notes > :last-child{margin-bottom:0}
   .notes h1,.notes h2{font-family:var(--display);font-weight:600;letter-spacing:-.012em;line-height:1.25;text-wrap:balance;margin:1.5em 0 .45em}
-  .notes h1{font-size:22px}
-  .notes h2{font-size:18.5px}
-  .notes h3{font-size:15.5px;font-weight:600;margin:1.4em 0 .4em}
+  .notes h1{
+    font-size:23px;margin-top:0;padding-bottom:.4em;
+    background:linear-gradient(100deg,var(--mark-a),var(--brand-2) 70%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    border-bottom:1px solid var(--paper-rule);
+  }
+  /* A rule that stops at the text rather than crossing the column: it marks
+     the section without cutting the page in half. */
+  .notes h2{
+    font-size:19px;color:var(--ink);display:flex;align-items:baseline;gap:11px;
+  }
+  .notes h2::after{
+    content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--paper-rule),transparent);
+  }
+  .notes h3{
+    font-size:15.5px;font-weight:600;margin:1.4em 0 .4em;
+    color:color-mix(in srgb,var(--accent) 72%,var(--ink));
+  }
   .notes strong{font-weight:600;background:var(--highlight-wash);padding:0 2px;border-radius:2px;box-decoration-break:clone}
-  .notes code{font-family:var(--mono);font-size:.87em;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;padding:1px 4px;white-space:nowrap}
+  .notes code{font-family:var(--mono);font-size:.87em;background:var(--accent-soft);border:1px solid var(--accent-line);color:color-mix(in srgb,var(--accent) 80%,var(--ink));border-radius:4px;padding:1px 5px;white-space:nowrap}
   .notes pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:13px 15px;overflow-x:auto}
   .notes pre code{background:none;border:0;padding:0;font-size:13px;white-space:pre}
   .notes table{border-collapse:collapse;width:100%;font-size:13.5px}
   .notes th,.notes td{border:1px solid var(--line);padding:7px 10px;text-align:left}
-  .notes th{background:var(--surface-2);font-weight:600}
+  .notes th{background:var(--brand-soft);font-weight:600;color:var(--ink)}
+  .notes tbody tr:nth-child(even){background:color-mix(in srgb,var(--brand) 3%,transparent)}
 
   /* every line is its own small surface, and a research target */
   .notes ul,.notes ol{list-style:none;padding-left:2px;margin:0 0 .7em}
@@ -605,11 +653,19 @@
   }
   .notes li{margin:2px 0;padding:7px 12px 7px 28px}
   .notes > p{margin:0 0 .6em -12px;padding:6px 12px;max-width:72ch}
-  .notes blockquote{margin:0 0 .9em -12px;padding:6px 12px 6px 14px;color:var(--ink-2);border-left:2px solid var(--brand);border-radius:0 9px 9px 0}
+  .notes blockquote{
+    margin:0 0 .9em -12px;padding:9px 14px 9px 15px;color:var(--ink-2);
+    border-left:3px solid var(--brand);border-radius:0 9px 9px 0;
+    background:linear-gradient(90deg,var(--brand-soft),transparent 70%);
+  }
   .notes li::before{
     content:"";position:absolute;left:11px;top:15px;width:6px;height:6px;border-radius:50%;
-    background:var(--brand);opacity:.5;transition:transform .17s cubic-bezier(.2,.8,.3,1),opacity .17s ease;
+    background:var(--brand);opacity:.55;transition:transform .17s cubic-bezier(.2,.8,.3,1),opacity .17s ease;
   }
+  /* Nested points take the second accent, so depth is visible without
+     counting indents. */
+  .notes li li::before{background:var(--accent);opacity:.65}
+  .notes li:hover::before{opacity:1;transform:scale(1.25)}
   .notes ol{counter-reset:n}
   .notes ol > li{counter-increment:n}
   .notes ol > li::before{
@@ -625,14 +681,21 @@
   .notes li li{margin-left:2px}
   .notes li.researching,.notes p.researching{background:var(--brand-soft);box-shadow:0 0 0 4px var(--brand-soft)}
 
+  /* Every per-bullet control lives in one row. They used to be positioned
+     independently at the same corner, so whichever was added last covered
+     the other — the source button was still there, simply unclickable. */
+  .li-tools{
+    position:absolute;top:-2px;right:-6px;z-index:2;
+    display:flex;align-items:center;gap:5px;
+  }
   .find{
-    position:absolute;top:-2px;right:-6px;opacity:0;pointer-events:none;transform:translateX(4px);
+    opacity:0;pointer-events:none;transform:translateX(4px);
     font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:500;
     padding:3px 8px;border-radius:100px;line-height:1.5;white-space:nowrap;
     color:var(--brand);background:var(--surface);border:1px solid var(--brand-line);cursor:pointer;
     transition:opacity .14s ease,transform .14s ease;
   }
-  .notes li:hover > .find,.notes p:hover > .find,.notes blockquote:hover > .find,.find:focus-visible{
+  .notes li:hover .find,.notes p:hover .find,.notes blockquote:hover .find,.find:focus-visible{
     opacity:1;pointer-events:auto;transform:none;
   }
   .find:hover{background:var(--brand-soft)}
@@ -652,7 +715,7 @@
   .tab.on{color:var(--ink);background:var(--glass-3);box-shadow:inset 0 1px 0 var(--glass-hi)}
   .tab.on::after{
     content:"";position:absolute;left:9px;right:9px;bottom:-1px;height:2px;
-    border-radius:2px;background:var(--brand);
+    border-radius:2px;background:linear-gradient(90deg,var(--mark-a),var(--brand-2));
   }
   /* A quiet dot marks a tab that has something in it. */
   .tab.has:not(.on)::before{
@@ -891,20 +954,19 @@
   /* Curation: keep or drop each point before it is filed. */
   .notes li{position:relative}
   .drop{
-    position:absolute;top:1px;right:-4px;
-    width:19px;height:19px;padding:0;border-radius:50%;line-height:1;
+    flex:none;width:19px;height:19px;padding:0;border-radius:50%;line-height:1;
     font:600 13px/1 var(--mono);
     color:var(--ink-3);background:var(--surface);
     border:1px solid var(--line);cursor:pointer;
     opacity:0;transition:opacity .14s ease,color .14s ease,border-color .14s ease;
   }
-  .notes li:hover > .drop,.drop:focus-visible{opacity:1}
+  .notes li:hover .drop,.drop:focus-visible{opacity:1}
   .drop:hover{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent)}
-  li.dropped > .drop{opacity:1;color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+  li.dropped .drop{opacity:1;color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
   li.dropped{opacity:.4}
   /* Strike only this point's own text, not any nested list beneath it. */
   li.dropped::marker{color:var(--ink-3)}
-  li.dropped > *:not(ul):not(ol):not(.drop),
+  li.dropped > *:not(ul):not(ol):not(.li-tools),
   li.dropped{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--err) 60%,transparent)}
   li.dropped ul,li.dropped ol{text-decoration:none}
   @media (hover:none){.drop{opacity:1}}
@@ -1325,7 +1387,7 @@ function attachCuration(){
       ev.stopPropagation();
       toggleDropped(el, line, lines);
     });
-    el.appendChild(b);
+    toolsFor(el).appendChild(b);
   });
   updateDropTally();
 }
@@ -1340,7 +1402,7 @@ function toggleDropped(el, line, lines){
     const l = Number(li.dataset.line);
     const off = droppedLines.has(l);
     li.classList.toggle("dropped", off);
-    const btn = li.querySelector(":scope > .drop");
+    const btn = li.querySelector(".drop");
     if(btn){
       btn.textContent = off ? "+" : "–";
       btn.title = off ? "Put this back in the saved note"
@@ -1362,7 +1424,7 @@ function restoreAll(){
   droppedLines.clear();
   $("notes").querySelectorAll("li[data-line]").forEach(li => {
     li.classList.remove("dropped");
-    const b = li.querySelector(":scope > .drop");
+    const b = li.querySelector(".drop");
     if(b){ b.textContent = "–"; b.title = "Leave this out of the saved note"; }
   });
   updateDropTally();
@@ -2299,6 +2361,11 @@ async function loadBucket(){
         + (sources >= 2 ? `<button class="combine" type="button">combine</button>` : "")
         + `<span class="fcount">${notes.length}</span></span>`;
       head.querySelector(".fname").textContent = name;
+      // A stable hue per folder name: the same subject keeps its colour
+      // between sessions, which is what makes it a cue rather than noise.
+      let h = 0;
+      for(const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 360;
+      head.style.setProperty("--fh", h);
       const btn = head.querySelector(".combine");
       if(btn) btn.addEventListener("click", () => combineFolder(name, btn));
       list.appendChild(head);
@@ -2671,15 +2738,27 @@ function claimOf(el){
 }
 
 /* Attach a "sources" button to every substantive line of the notes. */
+/* The row of controls that appears on a bullet when you hover it. Created
+   once and shared, so nothing can be positioned on top of anything else. */
+function toolsFor(el){
+  let row = el.querySelector(":scope > .li-tools");
+  if(!row){
+    row = document.createElement("span");
+    row.className = "li-tools";
+    el.appendChild(row);
+  }
+  return row;
+}
+
 function attachResearch(){
   $("notes").querySelectorAll("li, p, blockquote").forEach(el => {
-    if(el.querySelector(":scope > .find")) return;
+    if(el.querySelector(".find")) return;
     if(el.closest(".find-card")) return;
     if(claimOf(el).length < 24) return;              // too short to research
     const b = document.createElement("button");
     b.type = "button"; b.className = "find"; b.textContent = "⌕ sources";
     b.addEventListener("click", ev => { ev.stopPropagation(); openProbe(el); });
-    el.appendChild(b);
+    toolsFor(el).appendChild(b);
   });
 }
 
