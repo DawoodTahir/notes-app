@@ -418,7 +418,24 @@
     background:transparent;border:1px solid transparent;font:inherit;color:inherit;
   }
   .result:hover{background:var(--surface);border-color:var(--line)}
-  .result > span:last-child{min-width:0;flex:1}
+  .rbody{min-width:0;flex:1}
+  .result.picked{background:var(--surface);border-color:var(--brand-line)}
+  .ract{flex:none;display:flex;gap:6px;align-items:center;opacity:0;transition:opacity .14s ease}
+  .result:hover .ract,.result.picked .ract,.ract:focus-within{opacity:1}
+  @media (hover:none){.ract{opacity:1}}
+  .rgo,.rprev{
+    font:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap;
+    padding:5px 10px;border-radius:7px;border:1px solid var(--line);
+    background:var(--surface);color:var(--ink-2);
+  }
+  .rgo{color:#fff;border-color:transparent;background:linear-gradient(140deg,var(--mark-b),var(--mark-a))}
+  .rgo:hover{filter:brightness(1.06)}
+  .rprev:hover{border-color:var(--brand-line);color:var(--brand)}
+  @media (max-width:560px){
+    .result{flex-wrap:wrap}
+    .ract{flex:1 0 100%;opacity:1;margin-top:6px}
+    .rgo{flex:1}
+  }
   .idx{font-size:10.5px;color:var(--ink-3);flex:none;width:16px;padding-top:2px}
   .rt{display:block;font-size:13px;font-weight:500;line-height:1.4;margin-bottom:3px}
   .rm{display:block;font-size:10.5px;color:var(--ink-3)}
@@ -1020,6 +1037,7 @@
       <div class="compose-row">
         <input id="url" placeholder="Paste a link, or describe a topic…" required />
         <button type="button" id="btnPreview">Preview</button>
+        <button type="button" id="btnWeb" hidden>Ask the web</button>
         <button type="button" id="btnAuto" hidden>Do it for me</button>
         <button type="submit" class="primary" id="btnNotes">Generate notes</button>
       </div>
@@ -1873,9 +1891,12 @@ function refreshMode(){
   // Describing a need is a third thing you can do here, and only makes sense
   // once there is enough prose to plan from.
   $("btnAuto").hidden = link || v.trim().length < 12;
+  // The web is the other half of "look this up": some answers are a page,
+  // not a talk, and until now there was no way to ask for one.
+  $("btnWeb").hidden = link || v.trim().length < 3;
   $("modeHint").innerHTML = empty ? ""
     : link ? "detected a <b>link</b> — will generate notes"
-           : "a <b>topic</b> — search it, or let Gist <b>find and read</b> the videos for you";
+           : "a <b>topic</b> — search <b>videos</b>, ask the <b>web</b>, or let Gist find and read for you";
 }
 $("url").addEventListener("input", refreshMode);
 refreshMode();
@@ -1965,6 +1986,74 @@ function renderAutoReport(r){
 
 $("btnAuto").addEventListener("click", runAuto);
 
+/* Answer a question from the open web rather than from a video.
+
+   The result is treated exactly like a set of notes — same pane, same chat,
+   same Save — because that is what it is: a written answer you may want to
+   question, amend and keep. Citations are numbered and the source list is
+   built from the pages actually read, so a link in the answer is always one
+   the run opened. */
+async function askWeb(){
+  const q = $("url").value.trim();
+  if(q.length < 3){ setStatus("Type something to look up.", {err:true}); return; }
+
+  $("btnNotes").disabled = $("btnWeb").disabled = $("btnAuto").disabled = true;
+  $("searchResults").innerHTML = "";
+  beginDocument();
+  $("outTitle").textContent = "Searching the web…";
+  setProgress("starting", 0);
+  try{
+    const r = await runJob("/api/web", {query: q}, (step, pct) => setProgress(step, pct));
+    if(!r.answer){
+      $("notes").className = "notes"; $("notes").innerHTML = "";
+      $("outTitle").textContent = "Notes";
+      setStatus(r.message || "Nothing useful came back.", {err:true});
+      return;
+    }
+    lastNotesMd = r.answer; lastTitle = q;
+    clearExample();
+    $("notes").className = "notes";
+    $("notes").innerHTML = marked.parse(r.answer);
+    attachResearch();
+    attachCuration();
+    $("outTitle").innerHTML = escapeHtml(q.slice(0,70)) + " <span class='badge'>web</span>";
+    $("btnCopy").disabled = $("btnDownload").disabled = false;
+    $("btnSave").disabled = false; $("btnSave").textContent = "Save";
+    openChat(r.session);
+    setSource(null);
+    renderWebSources(r.read || []);
+    setStatus(r.message || "Answered from the web.");
+  }catch(e){
+    $("notes").className = "notes"; $("notes").innerHTML = "";
+    $("outTitle").textContent = "Notes";
+    setStatus(e.message || "That search failed.", {err:true});
+  }finally{
+    $("btnNotes").disabled = $("btnWeb").disabled = $("btnAuto").disabled = false;
+  }
+}
+
+/* The pages an answer was built from, listed under Sources. */
+function renderWebSources(pages){
+  const body = $("srcBody");
+  body.innerHTML = "";
+  if(!pages.length){ $("srcEmpty").hidden = false; return; }
+  $("srcEmpty").hidden = true;
+  $("tabSrc").classList.add("has");
+  pages.forEach((p, i) => {
+    const card = document.createElement("div");
+    card.className = "src-card";
+    const a = document.createElement("a");
+    a.href = p.url; a.target = "_blank"; a.rel = "noopener";
+    a.textContent = `[${i+1}] ${p.title}`;
+    const tag = document.createElement("div");
+    tag.className = "src-tag"; tag.textContent = p.host;
+    card.append(a, tag);
+    body.appendChild(card);
+  });
+}
+
+$("btnWeb").addEventListener("click", askWeb);
+
 async function runSearch(query){
   $("btnNotes").disabled = true;
   $("searchResults").innerHTML = "";
@@ -1979,29 +2068,54 @@ async function runSearch(query){
     if(!d.results.length){ setStatus("Nothing found. Try different words."); return; }
 
     setStatus(`${d.count} results — pick one to load it.`);
+    /* Each result carries its own action. The Generate button lives up in
+       the form, which is the wrong place once there is a list of videos on
+       screen: picking one meant loading it into the box, looking back up,
+       and pressing a button somewhere else. The decision and the act belong
+       together. */
     d.results.forEach((v, i) => {
-      const b = document.createElement("button");
-      b.type = "button"; b.className = "result";
-      b.innerHTML = (v.thumbnail
+      const row = document.createElement("div");
+      row.className = "result";
+      row.innerHTML = (v.thumbnail
           ? `<span class="rthumb"><img loading="lazy" decoding="async" alt=""></span>`
           : `<span class="idx">${String(i+1).padStart(2,"0")}</span>`)
-        + `<span><span class="rt"></span><span class="rm"></span></span>`;
-      const rimg = b.querySelector(".rthumb img");
+        + `<span class="rbody"><span class="rt"></span><span class="rm"></span></span>`
+        + `<span class="ract">`
+        + `<button type="button" class="rgo">Generate notes</button>`
+        + `<button type="button" class="rprev" title="Fetch the transcript first">Preview</button>`
+        + `</span>`;
+
+      const rimg = row.querySelector(".rthumb img");
       if(rimg){
         rimg.src = v.thumbnail;
-        rimg.addEventListener("error", () => b.querySelector(".rthumb").remove());
+        rimg.addEventListener("error", () => row.querySelector(".rthumb").remove());
       }
-      b.querySelector(".rt").textContent = v.title;
-      b.querySelector(".rm").textContent =
+      row.querySelector(".rt").textContent = v.title;
+      row.querySelector(".rm").textContent =
         [v.uploader, fmtDuration(v.duration), fmtViews(v.views)].filter(Boolean).join(" · ");
-      b.addEventListener("click", () => {
-        $("url").value = v.url;
+
+      const load = () => { $("url").value = v.url; refreshMode(); };
+
+      row.querySelector(".rgo").addEventListener("click", ev => {
+        ev.stopPropagation();
+        load();
         $("searchResults").innerHTML = "";
-        refreshMode();
-        setStatus(`Loaded: ${v.title.slice(0,60)} — press Generate notes.`);
-        $("btnNotes").focus();
+        makeNotes(new Event("submit"));
       });
-      $("searchResults").appendChild(b);
+      row.querySelector(".rprev").addEventListener("click", ev => {
+        ev.stopPropagation();
+        load();
+        preview();
+      });
+      // Clicking the row itself just selects it, for anyone who wants to
+      // change the style chips before generating.
+      row.addEventListener("click", () => {
+        load();
+        [...$("searchResults").children].forEach(c => c.classList.remove("picked"));
+        row.classList.add("picked");
+        setStatus(`Selected: ${v.title.slice(0,60)}`);
+      });
+      $("searchResults").appendChild(row);
     });
   }catch(e){
     setStatus("Network error: " + e.message, {err:true});

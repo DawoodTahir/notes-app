@@ -30,6 +30,7 @@ except Exception:
 from .research import find_sources
 from .synthesis import synthesise
 from . import orchestrator
+from . import websearch
 from .notes import (revise_notes, ChatRequest, NoteError, NoteRequest, answer_question,
                     classify_note, generate_notes)
 from . import auth, jobs, quota, quran, store
@@ -407,6 +408,26 @@ def _revise_job(payload: dict, progress) -> dict:
     return {"notes": revised, "session": sid}
 
 
+def _web_job(payload: dict, progress) -> dict:
+    """Search the open web and answer from the pages it reads."""
+    out = websearch.answer(
+        payload["query"],
+        provider=payload.get("provider") or os.environ.get("NOTE_PROVIDER") or "openai",
+        model=payload.get("model"),
+        progress=progress,
+    )
+    if out.get("answer"):
+        # Remembered like a set of notes so it can be questioned, revised and
+        # saved by the same machinery.
+        out["session"] = _remember(
+            payload["query"], "", out["answer"],
+            url="", platform="web", source="web search",
+            topic=payload["query"], note_kind="web answer",
+        )
+    return out
+
+
+jobs.register("web", _web_job)
 jobs.register("revise", _revise_job)
 jobs.register("orchestrate", _orchestrate_job)
 jobs.register("notes", _notes_job)
@@ -590,6 +611,30 @@ class ReviseIn(BaseModel):
     title: str | None = None
     provider: str | None = None
     model: str | None = None
+
+
+class WebIn(BaseModel):
+    query: str
+    provider: str | None = None
+    model: str | None = None
+
+
+@app.post("/api/web")
+def web_endpoint(body: WebIn, user: auth.User = Depends(current_user)):
+    """Answer a question from the open web, not from video."""
+    try:
+        quota.consume(user.id, "web")
+    except quota.QuotaExceeded as e:
+        return JSONResponse(status_code=429, content={"error": str(e)})
+
+    q = (body.query or "").strip()
+    if len(q) < 3:
+        return JSONResponse(status_code=422, content={"error": "Type something to look up."})
+
+    job_id = jobs.submit("web", {
+        "query": q, "provider": body.provider, "model": body.model,
+    }, user_id=user.id)
+    return JSONResponse(status_code=202, content={"job": job_id})
 
 
 @app.post("/api/revise")

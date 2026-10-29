@@ -27,6 +27,7 @@ _DEFAULTS = {
     "refile": 10,
     "digest": 15,
     "orchestrate": 8,
+    "web": 40,
 }
 
 
