@@ -182,10 +182,16 @@ def _grounded(query: str, model: Optional[str], say: Progress) -> Optional[dict]
         return None
 
     say("searching Google", 12)
+    # The model decides whether to search. Handed a bare phrase it often
+    # answers from memory instead, which is not what was asked for and
+    # produces an answer with nothing behind it — so the request is written
+    # as a search task rather than as a question.
+    prompt = (f"Search the web for current, citable information and answer:\n\n{query}\n\n"
+              "Base the answer on what the search returns, not on prior knowledge.")
     req = urllib.request.Request(
         f"{GROUNDING_HOST}/v1beta/models/{model}:generateContent",
         data=json.dumps({
-            "contents": [{"parts": [{"text": query}]}],
+            "contents": [{"parts": [{"text": prompt}]}],
             "tools": [{"google_search": {}}],
         }).encode(),
         headers={"Content-Type": "application/json", "x-goog-api-key": key},
@@ -204,6 +210,13 @@ def _grounded(query: str, model: Optional[str], say: Progress) -> Optional[dict]
 
     meta = cand.get("groundingMetadata") or {}
     chunks = meta.get("groundingChunks") or []
+
+    # No grounding metadata means no search happened, whatever the answer
+    # looks like. Presenting that as "answered from Google Search across 0
+    # sources" is a claim the run cannot support, so hand back to the path
+    # that definitely searches and definitely cites.
+    if not chunks:
+        return None
 
     say("checking the sources", 70)
     pages, seen = [], set()
@@ -266,7 +279,7 @@ def answer(query: str, provider: str = "openai", model: Optional[str] = None,
         grounded = _grounded(query, model, say)
         if grounded:
             return grounded
-        say("grounding unavailable — reading pages instead", 10)
+        say("no search results to ground on — reading pages instead", 10)
 
     say("searching the web", 8)
     results = search(query)

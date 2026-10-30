@@ -104,8 +104,27 @@ with auth off every visitor is served an identity flagged admin.
 
 ## Verifying UI work
 
-There is no browser here. Check what can be checked — token parity, brace
-balance, that no rule clobbers another, that element ids referenced by the
-script exist *and appear before it* — and then say plainly which parts were
-not visually verified. Do not describe how something looks as though it has
-been seen.
+**Look at it.** Chrome is installed and renders headlessly:
+
+```sh
+CH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CH" --headless --disable-gpu --hide-scrollbars --window-size=1440,900 \
+      --screenshot=/tmp/app.png --virtual-time-budget=4500 \
+      --user-data-dir=/tmp/chromeprofile http://127.0.0.1:8000/
+```
+
+Then read the PNG. Months of UI work here were done blind, describing layouts
+that had never been seen; an entire pane was rendering outside the grid and
+nobody knew.
+
+For anything layout-related, measure rather than guess. Inject a temporary
+script that writes `getComputedStyle` and `getBoundingClientRect` for the
+elements in question into a `data-` attribute, then `--dump-dom` and read it
+back. That is what found the pane sitting at `x=0 w=1440` when the grid said
+`240px 850px 350px`.
+
+Structure is checkable too: walk the tags in `<body>` and report anything
+unclosed. A single stray `</div>` closed `.shell` early and pushed the side
+panel out of the layout entirely, and every other check still passed.
+
+Say plainly which parts were not visually verified.

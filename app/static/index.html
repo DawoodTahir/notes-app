@@ -542,7 +542,26 @@
     flex:none;display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;
     padding-top:12px;border-top:1px solid var(--seam);margin-bottom:12px;
   }
-  .doc-title h2{font-family:var(--display);font-weight:500;font-size:19px;margin:0;letter-spacing:-.01em;line-height:1.25}
+  .doc-title{display:flex;align-items:center;gap:6px;min-width:0}
+  .doc-title h2{
+    font-family:var(--display);font-weight:500;font-size:19px;margin:0;
+    letter-spacing:-.01em;line-height:1.25;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;
+  }
+  .rename{
+    flex:none;width:26px;height:26px;padding:0;border-radius:7px;cursor:pointer;
+    font-size:12px;line-height:1;color:var(--ink-3);
+    background:transparent;border:1px solid transparent;
+    opacity:0;transition:opacity .14s ease;
+  }
+  .doc-title:hover .rename,.rename:focus-visible{opacity:1}
+  .rename:hover{color:var(--brand);border-color:var(--brand-line);background:var(--brand-soft)}
+  @media (hover:none){.rename{opacity:1}}
+  .rename-field{
+    font:inherit;font-family:var(--display);font-size:inherit;font-weight:inherit;
+    padding:2px 8px;border-radius:7px;width:min(520px,100%);
+  }
+
   .doc-actions{display:flex;gap:7px}
   .doc-actions button{font-size:12.5px;padding:7px 11px}
 
@@ -556,14 +575,38 @@
     border:1px solid var(--glass-line);
     -webkit-backdrop-filter:blur(14px) saturate(160%);
     backdrop-filter:blur(14px) saturate(160%);
-    border-radius:var(--r-lg);padding:24px 28px;min-height:220px;
+    border-radius:var(--r-lg);padding:26px 30px;min-height:0;
     box-shadow:var(--e1), inset 0 1px 0 var(--glass-hi);
   }
   /* Idle: a flashcard that keeps moving until something is started */
   .idle{
-    min-height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:26px;padding:28px 16px;
+    min-height:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:flex-start;gap:22px;padding:34px 16px 24px;
   }
+  .idle-recent{width:min(640px,100%);margin-top:4px}
+  .idle-head{
+    font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-3);margin-bottom:10px;text-align:center;
+  }
+  .idle-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px}
+  .idle-card{
+    text-align:left;display:flex;flex-direction:column;gap:5px;cursor:pointer;
+    padding:11px 13px;border-radius:10px;font:inherit;
+    background:var(--glass-2);border:1px solid var(--glass-line);
+    box-shadow:inset 0 1px 0 var(--glass-hi);
+    border-left:3px solid var(--pc,var(--brand));
+    transition:transform .17s cubic-bezier(.2,.8,.3,1),border-color .15s ease;
+  }
+  .idle-card:hover{transform:translateY(-2px);border-color:var(--brand-line)}
+  .ic-cat{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--pc,var(--brand));
+  }
+  .ic-t{
+    font-size:12.5px;line-height:1.4;color:var(--ink);font-weight:500;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+
   .fc-stack{position:relative;width:min(420px,100%);height:180px;perspective:1100px}
   .fc{
     position:absolute;inset:0;border-radius:var(--r-lg);
@@ -733,7 +776,12 @@
   }
   .tabpane{flex:1 1 auto;min-height:0;display:none;flex-direction:column;padding:12px 14px 14px}
   .tabpane.on{display:flex}
-  .tab-empty{color:var(--ink-3);font-size:12.5px;line-height:1.6;padding:18px 4px;text-align:center}
+  .tab-empty{
+    color:var(--ink-3);font-size:12.5px;line-height:1.6;
+    padding:16px 14px;text-align:center;
+    border:1px dashed var(--glass-line);border-radius:10px;
+    background:color-mix(in srgb,var(--brand) 3%,transparent);
+  }
 
   #paneScript .transcript{
     flex:1 1 auto;min-height:0;overflow:auto;margin:0;
@@ -758,7 +806,12 @@
   .chat-head{flex:none;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 10px}
   .chat-head h3{font-family:var(--display);font-weight:500;font-size:16px;margin:0;letter-spacing:-.01em}
   .chat-head .note{font-size:12px;color:var(--ink-3)}
-  .chat-empty{flex:1 1 auto;display:grid;place-items:center;text-align:center;color:var(--ink-3);font-size:12.5px;line-height:1.6;padding:0 14px}
+  .chat-empty{
+    flex:none;color:var(--ink-3);font-size:12.5px;line-height:1.6;
+    padding:16px 14px;text-align:center;
+    border:1px dashed var(--glass-line);border-radius:10px;
+    background:color-mix(in srgb,var(--brand) 3%,transparent);
+  }
   .chat.on .chat-empty{display:none}
   /* The composer stays on screen even before there are notes. Hiding it
      until a document existed meant the panel showed a heading and nothing
@@ -808,9 +861,15 @@
   .dots i:nth-child(3){animation-delay:.36s}
   @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
 
-  .chat-form{flex:none;display:flex;gap:8px;align-items:flex-end;margin-top:10px}
-  .chat-form textarea{flex:1;min-height:42px;max-height:150px;resize:none;padding:11px 12px;font-size:14px;line-height:1.45}
-  .chat-form button{flex:0 0 auto;height:42px;white-space:nowrap;padding:0 16px}
+  /* The side column is narrow; a row of three controls does not fit and the
+     input ends up too small to type in. The box takes the full width and
+     the buttons sit under it. */
+  .chat-form{flex:none;display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .chat-form textarea{
+    flex:1 0 100%;min-height:44px;max-height:150px;resize:none;
+    padding:11px 12px;font-size:14px;line-height:1.45;
+  }
+  .chat-form button{flex:1;height:38px;white-space:nowrap;padding:0 12px;font-size:13px}
 
   /* research findings inside a bubble */
   .finds{display:flex;flex-direction:column;gap:9px;margin:4px 0 2px}
@@ -1234,6 +1293,8 @@
     <div class="doc-head">
       <div class="doc-title">
         <h2 id="outTitle">Notes</h2>
+        <button type="button" class="rename" id="btnRename" hidden
+                title="Rename this note">&#9998;</button>
       </div>
       <div class="doc-actions">
         <button id="btnSave" disabled>Save</button>
@@ -1262,13 +1323,16 @@
           </div>
         </div>
         <p class="idle-hint">Paste a link or describe a topic above to begin.</p>
+
+        <div class="idle-recent" id="idleRecent" hidden>
+          <div class="idle-head">Pick up where you left off</div>
+          <div class="idle-cards" id="idleCards"></div>
+        </div>
       </div>
 
       <div class="paper" id="paper" hidden>
         <div class="notes" id="notes"></div>
       </div>
-      </div>
-
     </div>
   </main>
 
@@ -1692,6 +1756,8 @@ function beginDocument(){
     + '<div class="sk"></div><div class="sk"></div><div class="sk sk-s"></div>'
     + '<div class="sk sk-h sk-h2"></div>'
     + '<div class="sk"></div><div class="sk sk-s"></div><div class="sk"></div>';
+  openNoteId = null;
+  $("btnRename").hidden = true;
   $("outTitle").textContent = "Working…";
   $("btnSave").disabled = $("btnCopy").disabled = $("btnDownload").disabled = true;
   $("btnSave").textContent = "Save";
@@ -2410,6 +2476,26 @@ async function combineFolder(name, btn){
   }
 }
 
+/* The idle pane was a flashcard floating in a very tall empty column. The
+   most useful thing to put under it is the work already in progress, so
+   returning to the app lands on something to continue rather than a void. */
+function fillIdle(notes){
+  const box = $("idleRecent"), cards = $("idleCards");
+  const recent = (notes || []).slice(0, 4);
+  box.hidden = recent.length === 0;
+  cards.innerHTML = "";
+  recent.forEach(n => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "idle-card";
+    if(n.platform) b.dataset.p = n.platform;
+    b.innerHTML = `<span class="ic-cat"></span><span class="ic-t"></span>`;
+    b.querySelector(".ic-cat").textContent = n.category || "Unfiled";
+    b.querySelector(".ic-t").textContent = n.label || n.title;
+    b.addEventListener("click", () => openSaved(n.id));
+    cards.appendChild(b);
+  });
+}
+
 async function loadBucket(){
   try{
     const r = await fetch("/api/saved");
@@ -2418,6 +2504,7 @@ async function loadBucket(){
     const list = $("bucketList");
     list.innerHTML = "";
     $("bucketTally").textContent = d.count || "";
+    fillIdle(d.notes);
 
     if(!d.notes.length){
       list.innerHTML = '<div class="bucket-empty">Nothing saved yet.<br>'
@@ -2539,6 +2626,51 @@ function bucketCard(n){
   return card;
 }
 
+/* The title is a guess the classifier made, so it has to be correctable.
+   Editing happens in place rather than in a dialog — renaming a note is a
+   small act and should not feel like a form. */
+let openNoteId = null;
+
+function startRename(){
+  if(!openNoteId) return;
+  const h = $("outTitle");
+  const badge = h.querySelector(".badge");
+  const current = (h.textContent || "").replace(/\s*(saved|done|web)\s*$/i, "").trim();
+
+  const input = document.createElement("input");
+  input.className = "rename-field";
+  input.value = current;
+  input.maxLength = 200;
+  h.replaceChildren(input);
+  input.focus(); input.select();
+
+  const finish = async (commit) => {
+    const next = input.value.trim();
+    h.textContent = commit && next ? next : current;
+    if(badge) h.appendChild(badge);
+    if(!commit || !next || next === current) return;
+    try{
+      const r = await fetch(`/api/saved/${openNoteId}/title`, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({subject: next}),
+      });
+      const d = await r.json();
+      if(!r.ok || d.error){ setStatus(d.error || "Could not rename.", {err:true}); return; }
+      await loadBucket();
+      setStatus("Renamed.");
+    }catch(e){ setStatus("Network error: " + e.message, {err:true}); }
+  };
+
+  input.addEventListener("keydown", ev => {
+    if(ev.key === "Enter"){ ev.preventDefault(); finish(true); }
+    if(ev.key === "Escape"){ ev.preventDefault(); finish(false); }
+  });
+  input.addEventListener("blur", () => finish(true));
+}
+
+$("btnRename").addEventListener("click", startRename);
+$("outTitle").addEventListener("dblclick", () => { if(openNoteId) startRename(); });
+
 async function openSaved(id){
   setStatus("Opening saved notes…", {busy:true});
   try{
@@ -2552,6 +2684,8 @@ async function openSaved(id){
     $("notes").innerHTML = marked.parse(d.notes);
     attachResearch();
     attachCuration();
+    openNoteId = d.id;
+    $("btnRename").hidden = false;
     $("outTitle").innerHTML = (d.subject || "Notes") + " <span class='badge'>saved</span>";
     $("btnCopy").disabled = $("btnDownload").disabled = false;
     $("btnSave").disabled = true;          // already in the bucket

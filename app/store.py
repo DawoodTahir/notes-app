@@ -234,6 +234,16 @@ def get_note(note_id: str, user_id: str) -> Optional[SavedNote]:
     return SavedNote(**dict(r)) if r else None
 
 
+def rename_note(note_id: str, user_id: str, subject: str) -> bool:
+    """Set the line a note is known by. Empty restores the generated one."""
+    with _connect() as conn:
+        changed = conn.execute(
+            "UPDATE saved_notes SET subject = ? WHERE id = ? AND user_id = ?",
+            (subject.strip(), note_id, user_id),
+        ).rowcount
+    return bool(changed)
+
+
 def delete_note(note_id: str, user_id: str) -> bool:
     with _connect() as conn:
         cur = conn.execute("DELETE FROM saved_notes WHERE id = ? AND user_id = ?",

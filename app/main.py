@@ -717,6 +717,21 @@ def categories(user: auth.User = Depends(current_user)):
     return {"categories": store.list_categories(user.id)}
 
 
+class RenameIn(BaseModel):
+    subject: str
+
+
+@app.post("/api/saved/{note_id}/title")
+def saved_rename(note_id: str, body: RenameIn, user: auth.User = Depends(current_user)):
+    """Rename a saved note. The generated subject line is a guess, not a verdict."""
+    title = (body.subject or "").strip()[:200]
+    if not title:
+        return JSONResponse(status_code=422, content={"error": "Give it a name."})
+    if not store.rename_note(note_id, user.id, title):
+        return JSONResponse(status_code=404, content={"error": "No saved note with that id."})
+    return {"id": note_id, "subject": title}
+
+
 @app.post("/api/saved/{note_id}/category")
 def saved_refile(note_id: str, body: RefileIn, user: auth.User = Depends(current_user)):
     cat = " ".join((body.category or "").split())[:48] or "Unfiled"
